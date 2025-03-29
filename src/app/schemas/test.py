@@ -1,17 +1,16 @@
-from datetime import datetime
 from typing import Annotated, List, Optional
-from typing_extensions import Self
 
-from pydantic import BaseModel, Field, model_validator, PositiveInt, field_validator
+
+from pydantic import BaseModel, Field, PositiveInt, field_validator
 from pydantic.networks import IPvAnyAddress
 
 from ..core.schemas import TimestampSchema
-from .policy import PolicyTermRead
+from .policy import PolicyTermRead, PolicyTermReadInternal
 
 
 class TestBase(BaseModel):
     name: str  # Annotated[str, Field(min_length=2, max_length=30, examples=["This is my Test name"])]
-
+    comment: Annotated[str | None, Field(max_length=300, examples=["This is my test comment"], default=None)]
 
 class TestRead(TimestampSchema, TestBase):
     id: int
@@ -83,15 +82,12 @@ class TestCaseDelete(TestCaseBase):
     pass
 
 
-class TestMatchedTerm(BaseModel):
-    id: int
-    policy_id: int
-    name: str
-
-
-class TestRunRead(BaseModel):
-    test_id: int
-    case_name: str
-    case_id: int
+class TestResultOneRead(BaseModel):
+    case: TestCaseRead
     passed: bool
-    matched_term: TestMatchedTerm | None
+    matched_term: PolicyTermRead | None
+
+
+class TestResultRead(BaseModel):
+    tests: List[TestResultOneRead]
+    not_matched_terms: List[PolicyTermReadInternal]

@@ -38,6 +38,10 @@ class Policy(Base, TimestampsMixin):
         secondary="test_policy_association", lazy="joined", back_populates="policies"
     )
 
+    @property
+    def tests_ids(self) -> List[int]:
+        return [test.id for test in self.tests]
+
     targets: Mapped[List["Target"]] = relationship(
         secondary="target_policy_association", lazy="joined", back_populates="policies"
     )

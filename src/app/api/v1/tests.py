@@ -1,6 +1,6 @@
-from typing import Annotated, Any, List
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request, Response, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
@@ -8,15 +8,12 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from pydantic import ValidationError
-from pydantic_core import InitErrorDetails, PydanticCustomError
-
-from ...core.cruds import case_crud, policy_crud, test_crud, dynamic_policy_crud
+from ...core.cruds import case_crud, dynamic_policy_crud, policy_crud, test_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
 from ...core.utils.acl_test import run_tests
 from ...core.utils.generate import get_expanded_terms
-from ...filters.test import TestFilter, TestCaseFilter
+from ...filters.test import TestCaseFilter, TestFilter
 from ...models import Test, TestCase
 from ...schemas.test import (
     TestCaseCreate,
@@ -25,7 +22,7 @@ from ...schemas.test import (
     TestCreate,
     TestCreated,
     TestRead,
-    TestRunRead,
+    TestResultRead,
     TestUpdate,
 )
 
@@ -195,9 +192,10 @@ async def erase_test_case(
     return {"message": "Test case deleted"}
 
 
-from .revisions import fetch_terms, fetch_addresses, fetch_networks
+from .revisions import fetch_addresses, fetch_networks, fetch_terms
 
-@router.get("/run_tests", response_model=List[TestRunRead])
+
+@router.get("/run_tests", response_model=TestResultRead)
 async def get_tests_run(
     request: Request,
     response: Response,
@@ -212,22 +210,17 @@ async def get_tests_run(
         if policy is None:
             raise NotFoundException("Policy not found")
         tests = policy.tests
-        
+
         expanded_terms = await get_expanded_terms(db, policy.terms)
-        
+
     else:
         policy = await dynamic_policy_crud.get(db, dynamic_policy_id, load_relations=True)
         if policy is None:
             raise NotFoundException("Dynamic policy not found")
-        
-        
-        source_addresses = (
-            await fetch_addresses(db, policy.source_filters_ids) if policy.source_filters_ids else []
-        )
+
+        source_addresses = await fetch_addresses(db, policy.source_filters_ids) if policy.source_filters_ids else []
         destination_addresses = (
-            await fetch_addresses(db, policy.destination_filters_ids)
-            if policy.destination_filters_ids
-            else []
+            await fetch_addresses(db, policy.destination_filters_ids) if policy.destination_filters_ids else []
         )
 
         source_networks = await fetch_networks(db, source_addresses) if source_addresses else []
@@ -242,8 +235,6 @@ async def get_tests_run(
         )
         tests = policy.tests
 
-    
-
     all_matches = []
     for test in tests:
         for case in test.cases:
@@ -252,15 +243,19 @@ async def get_tests_run(
                 "dst": case.destination_network,
                 "sport": case.source_port,
                 "dport": case.destination_port,
-                "proto": case.protocol
+                "proto": case.protocol,
             }
 
             match, matched_term = await run_tests(
                 db, policy, expanded_terms, case.expected_action, **{key: val for key, val in kwargs.items() if val}
             )
 
-            obj = {"test_id": test.id, "case_name": case.name, "case_id": case.id, "passed": match, "matched_term": matched_term}
+            obj = {"passed": match, "case": case, "matched_term": matched_term}
 
             all_matches.append(obj)
 
-    return all_matches
+    matched_ids = [match.get("matched_term").id for match in all_matches if match.get("matched_term")]
+
+    not_matched_terms = [term for term in expanded_terms if term.id not in matched_ids]
+
+    return {"tests": all_matches, "not_matched_terms": not_matched_terms}

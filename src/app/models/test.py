@@ -30,7 +30,8 @@ class Test(Base, TimestampsMixin):
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
 
     name: Mapped[str] = mapped_column(String)
-
+    comment: Mapped[Optional[str]] = mapped_column(String)
+    
     dynamic_policies: Mapped[List["DynamicPolicy"]] = relationship(
         secondary="test_dynamic_policy_association", lazy="selectin", back_populates="tests"
     )

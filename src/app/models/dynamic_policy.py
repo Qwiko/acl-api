@@ -33,9 +33,17 @@ class DynamicPolicy(Base, TimestampsMixin):
         secondary="test_dynamic_policy_association", lazy="selectin", back_populates="dynamic_policies"
     )
 
+    @property
+    def tests_ids(self) -> List[int]:
+        return [test.id for test in self.tests]
+
     targets: Mapped[List["Target"]] = relationship(
         secondary="target_dynamic_policy_association", lazy="selectin", back_populates="dynamic_policies"
     )
+
+    @property
+    def targets_ids(self) -> List[int]:
+        return [target.id for target in self.targets]
 
     revisions: Mapped[List["Revision"]] = relationship(
         foreign_keys="Revision.dynamic_policy_id",
@@ -43,10 +51,6 @@ class DynamicPolicy(Base, TimestampsMixin):
         cascade="all, delete",
         init=False,
     )
-
-    @property
-    def targets_ids(self) -> List[int]:
-        return [target.id for target in self.targets]
 
     source_filters: Mapped[List["Network"]] = relationship(
         secondary="dynamic_policy_source_filter_association", lazy="selectin"

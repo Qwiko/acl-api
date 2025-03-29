@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import List
 
 from aerleon.lib.aclcheck import AclCheck
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +22,7 @@ async def run_tests(
 
     # Add temporary target to make FromPolicyDict work
     policy_dict["filters"][0]["header"]["targets"] = {"cisco": "test-filter"}
-    print(policy_dict)
+
     check = AclCheck.FromPolicyDict(policy_dict, definitions, src, dst, sport, dport, proto)
 
     match = next(iter(check.ExactMatches()), None)

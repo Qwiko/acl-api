@@ -9,13 +9,14 @@ from ..core.schemas import TimestampSchema
 
 class PolicyBase(BaseModel):
     name: str  # Annotated[str, Field(min_length=2, max_length=30, examples=["This is my Policy name"])]
-    comment: Annotated[str | None, Field(max_length=100, examples=["This is my policy comment"], default=None)]
+    comment: Annotated[str | None, Field(max_length=300, examples=["This is my policy comment"], default=None)]
 
 
 class PolicyRead(TimestampSchema, PolicyBase):
     id: int
 
     targets_ids: Annotated[List[PositiveInt], Field(serialization_alias="targets", default_factory=list)]
+    tests_ids: Annotated[List[PositiveInt], Field(serialization_alias="tests", default_factory=list)]
     terms: Annotated[List[Union["PolicyTermRead", "PolicyTermNestedRead"]], Field(default_factory=list)]
 
 
@@ -29,10 +30,12 @@ class PolicyCreated(TimestampSchema, PolicyBase):
 
 class PolicyCreate(PolicyBase):
     targets: Annotated[Optional[List[PositiveInt]], Field(default_factory=list)]
+    tests: Annotated[Optional[List[PositiveInt]], Field(default_factory=list)]
 
 
 class PolicyUpdate(PolicyBase):
     targets: Annotated[Optional[List[PositiveInt]], Field(default_factory=list)]
+    tests: Annotated[Optional[List[PositiveInt]], Field(default_factory=list)]
 
 
 class PolicyUpdateInternal(PolicyUpdate):
@@ -114,7 +117,7 @@ class PolicyTermBase(PolicyTermSharedBase):
 
     logging: Annotated[bool, Field(default=False)]
 
-    action: Annotated[str, Field()]
+    action: str
 
     negate_source_networks: Annotated[bool, Field(default=False)]
     negate_destination_networks: Annotated[bool, Field(default=False)]
@@ -138,11 +141,9 @@ class PolicyTermNestedBase(PolicyTermSharedBase):
     nested_policy_id: Annotated[PositiveInt, Field()]
 
 
-class PolicyTermRead(TimestampSchema, PolicyTermBase):
+class PolicyTermReadInternal(PolicyTermBase):
     id: int
     policy_id: int
-
-    position: PositiveInt
 
     source_networks_ids: Annotated[List[int], Field(serialization_alias="source_networks", default_factory=list)]
     destination_networks_ids: Annotated[
@@ -155,6 +156,10 @@ class PolicyTermRead(TimestampSchema, PolicyTermBase):
     destination_services_ids: Annotated[
         List[PositiveInt], Field(serialization_alias="destination_services", default_factory=list)
     ]
+
+
+class PolicyTermRead(TimestampSchema, PolicyTermReadInternal):
+    position: PositiveInt
 
 
 class PolicyTermNestedRead(PolicyTermNestedBase):
