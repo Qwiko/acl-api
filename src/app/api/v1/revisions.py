@@ -1,21 +1,20 @@
 import ipaddress
 from typing import Annotated, Any, List, Union
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlalchemy import cast, func, or_, select
 from sqlalchemy.dialects.postgresql import CIDR
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
 
 from ...core.cruds import dynamic_policy_crud, policy_crud, revision_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
 from ...core.utils.generate import generate_acl_from_policy
 from ...filters.revision import RevisionFilter
-from ...models import Network, NetworkAddress, PolicyTerm, Revision, RevisionConfig, Target
+from ...models import Network, NetworkAddress, PolicyTerm, Revision, RevisionConfig
 from ...models.policy import PolicyTermDestinationNetworkAssociation, PolicyTermSourceNetworkAssociation
 from ...schemas.dynamic_policy import DynamicPolicyRead
 from ...schemas.policy import PolicyRead

@@ -7,7 +7,6 @@ from fastapi_pagination import Page
 from fastapi_pagination import paginate as dict_paginate
 from fastapi_pagination.ext.sqlalchemy import paginate
 from pydantic import BaseModel
-from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 

@@ -30,7 +30,6 @@ from .db.database import Base
 from .db.database import async_engine as engine
 from .utils import queue
 
-from typing import List
 
 from pydantic import BaseModel
 
