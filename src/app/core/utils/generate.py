@@ -265,15 +265,16 @@ def get_aerleon_terms(terms: List[PolicyTerm], protocol_map) -> List[dict]:
                     protocols.extend(protocol_map.get(destination_service.hashed_name))
 
         if not protocols:
-            protocols = ["ip"]
+            # Defaults to ip protocol
+            terms_arr.append(term_dict)
         else:
             # Unique list of protocols
             protocols = list(set(protocols))
 
-        for protocol in protocols:
-            temp_dict = term_dict.copy()
-            temp_dict.update({"name": term.valid_name + "-" + protocol, "protocol": protocol})
-            terms_arr.append(temp_dict)
+            for protocol in protocols:
+                temp_dict = term_dict.copy() # Copying when iterating
+                temp_dict.update({"name": term.valid_name + "-" + protocol, "protocol": protocol})
+                terms_arr.append(temp_dict)
     return terms_arr
 
 
