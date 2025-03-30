@@ -14,7 +14,7 @@ from ...core.exceptions.http_exceptions import NotFoundException
 from ...core.utils.acl_test import run_tests
 from ...core.utils.generate import get_expanded_terms
 from ...filters.test import TestCaseFilter, TestFilter
-from ...models import Test, TestCase
+from ...models import Test, TestCase, Policy
 from ...schemas.test import (
     TestCaseCreate,
     TestCaseRead,
@@ -227,10 +227,15 @@ async def get_tests_run(
 
         destination_networks = await fetch_networks(db, destination_addresses) if destination_addresses else []
 
+        policy_ids_stmt = select(Policy.id).where(Policy.id.in_(policy.policy_filters_ids))
+        policy_ids_res = await db.execute(policy_ids_stmt)
+        policy_ids = policy_ids_res.unique().scalars().all()
+
         expanded_terms = await fetch_terms(
             db,
             source_networks=source_networks,
             destination_networks=destination_networks,
+            policy_ids=policy_ids,
             filter_action=policy.filter_action,
         )
         tests = policy.tests

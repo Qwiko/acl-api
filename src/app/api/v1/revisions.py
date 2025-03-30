@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
-from sqlalchemy import cast, exists, func, not_, or_, select
+from sqlalchemy import cast, exists, func, not_, or_, select, and_
 from sqlalchemy.dialects.postgresql import CIDR
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +14,7 @@ from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
 from ...core.utils.generate import generate_acl_from_policy
 from ...filters.revision import RevisionFilter
-from ...models import Network, NetworkAddress, PolicyTerm, Revision, RevisionConfig
+from ...models import Network, NetworkAddress, Policy, PolicyTerm, Revision, RevisionConfig
 from ...models.policy import PolicyTermDestinationNetworkAssociation, PolicyTermSourceNetworkAssociation
 from ...schemas.dynamic_policy import DynamicPolicyRead
 from ...schemas.policy import PolicyRead
@@ -41,12 +41,12 @@ def is_valid_cidr(cidr: str) -> bool:
 async def fetch_addresses(db: AsyncSession, network_ids: List[int], return_networks: List[str] = []) -> List[str]:
     """
     Recursively fetches network addresses in CIDR format, including nested networks.
-    
+
     Parameters:
         db (AsyncSession): The SQLAlchemy async session.
         network_ids (List[int]): List of network IDs to fetch addresses from.
         return_networks (List[str], optional): Accumulator for CIDR addresses. Defaults to an empty list.
-    
+
     Returns:
         List[str]: A list of unique CIDR addresses.
     """
@@ -129,57 +129,71 @@ async def fetch_terms(
     db: AsyncSession,
     source_networks: List["Network"] = [],
     destination_networks: List["Network"] = [],
+    policy_ids: List[int] = [],
     filter_action: Optional[str] = None,
 ) -> List["PolicyTerm"]:
     """
     Fetches PolicyTerm objects based on source and destination networks, filtering by action if provided.
-    
+
     Parameters:
         db (AsyncSession): The SQLAlchemy async session.
         source_networks (List[Network], optional): List of source networks to filter by. Defaults to an empty list.
         destination_networks (List[Network], optional): List of destination networks to filter by. Defaults to an empty list.
         filter_action (Optional[str], optional): Action filter using SQL LIKE syntax. Defaults to any action.
-    
+
     Returns:
         List[PolicyTerm]: A list of filtered PolicyTerm objects.
     """
-    if not filter_action:
-        filter_action = "%%"  # SQL LIKE wildcard for matching any action
-
     # Extract network IDs for both source and destination
     network_ids = {net.id for net in source_networks + destination_networks}
     term_ids = set()
 
     if network_ids:
         result = await db.execute(
-            select(PolicyTermSourceNetworkAssociation.policy_term_id, PolicyTermDestinationNetworkAssociation.policy_term_id)
-            .outerjoin(PolicyTermDestinationNetworkAssociation, PolicyTermSourceNetworkAssociation.policy_term_id == PolicyTermDestinationNetworkAssociation.policy_term_id)
+            select(
+                PolicyTermSourceNetworkAssociation.policy_term_id,
+                PolicyTermDestinationNetworkAssociation.policy_term_id,
+            )
+            .outerjoin(
+                PolicyTermDestinationNetworkAssociation,
+                PolicyTermSourceNetworkAssociation.policy_term_id
+                == PolicyTermDestinationNetworkAssociation.policy_term_id,
+            )
             .where(
                 or_(
                     PolicyTermSourceNetworkAssociation.network_id.in_(network_ids),
-                    PolicyTermDestinationNetworkAssociation.network_id.in_(network_ids)
+                    PolicyTermDestinationNetworkAssociation.network_id.in_(network_ids),
                 )
             )
         )
         term_ids.update(result.scalars().all())
 
     # Fetch PolicyTerm objects based on the collected term IDs and filtering conditions
-    result = await db.execute(
-        select(PolicyTerm)
-        .where(
-            or_(
-                PolicyTerm.id.in_(term_ids),  # Terms matching source/destination networks
-                not_(
-                    exists().where(PolicyTerm.id == PolicyTermSourceNetworkAssociation.policy_term_id)
-                ),  # Terms with no associated source networks
-                not_(
-                    exists().where(PolicyTerm.id == PolicyTermDestinationNetworkAssociation.policy_term_id)
-                ),  # Terms with no associated destination networks
-            )
+
+    conditions = [
+        or_(
+            PolicyTerm.id.in_(term_ids),  # Terms matching source/destination networks
+            not_(
+                exists().where(PolicyTerm.id == PolicyTermSourceNetworkAssociation.policy_term_id)
+            ),  # Terms with no associated source networks
+            not_(
+                exists().where(PolicyTerm.id == PolicyTermDestinationNetworkAssociation.policy_term_id)
+            ),  # Terms with no associated destination networks
         )
-        .where(PolicyTerm.action.ilike(filter_action))  # Apply action filter
-        .order_by(PolicyTerm.policy_id.asc(), PolicyTerm.lex_order.asc())  # Sort results
-    )
+    ]
+
+    stmt = select(PolicyTerm).order_by(PolicyTerm.policy_id.asc(), PolicyTerm.lex_order.asc())  # Sort results
+
+    if policy_ids:
+        conditions.append(PolicyTerm.policy_id.in_(policy_ids))
+
+    if filter_action:
+        conditions.append(PolicyTerm.action.ilike(filter_action))
+
+    if conditions:
+        stmt = stmt.where(and_(*conditions))
+
+    result = await db.execute(stmt)
 
     terms = result.unique().scalars().all()
     filtered_terms = []
@@ -236,6 +250,10 @@ async def write_revision(
             else []
         )
 
+        policy_ids_stmt = select(Policy.id).where(Policy.id.in_(dynamic_policy.policy_filters_ids))
+        policy_ids_res = await db.execute(policy_ids_stmt)
+        policy_ids = policy_ids_res.unique().scalars().all()
+
         source_networks = await fetch_networks(db, source_addresses) if source_addresses else []
 
         destination_networks = await fetch_networks(db, destination_addresses) if destination_addresses else []
@@ -244,6 +262,7 @@ async def write_revision(
             db,
             source_networks=source_networks,
             destination_networks=destination_networks,
+            policy_ids=policy_ids,
             filter_action=dynamic_policy.filter_action,
         )
 
@@ -322,7 +341,7 @@ async def read_revision(request: Request, id: int, db: Annotated[AsyncSession, D
 
 
 @router.put("/revisions/{id}", response_model=Union[PolicyRevisionRead, DynamicPolicyRevisionRead])
-async def update__revision(
+async def update_revision(
     request: Request,
     id: int,
     values: Union[PolicyRevisionCreate, DynamicPolicyRevisionCreate],

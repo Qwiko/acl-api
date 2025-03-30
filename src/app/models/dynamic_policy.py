@@ -11,10 +11,12 @@ if TYPE_CHECKING:
     from .revision import Revision
     from .target import Target
     from .test import Test
+    from .policy import Policy
 else:
     Target = "Target"
     Revision = "Revision"
     Test = "Test"
+    Policy = "Policy"
 
 
 class DynamicPolicy(Base, TimestampsMixin):
@@ -60,6 +62,10 @@ class DynamicPolicy(Base, TimestampsMixin):
         secondary="dynamic_policy_destination_filter_association", lazy="selectin"
     )
 
+    policy_filters: Mapped[List["Policy"]] = relationship(
+        secondary="dynamic_policy_policy_filter_association", lazy="selectin"
+    )
+
     @property
     def source_filters_ids(self) -> List[int]:
         return [source_filter.id for source_filter in self.source_filters]
@@ -67,6 +73,10 @@ class DynamicPolicy(Base, TimestampsMixin):
     @property
     def destination_filters_ids(self) -> List[int]:
         return [destination_filter.id for destination_filter in self.destination_filters]
+
+    @property
+    def policy_filters_ids(self) -> List[int]:
+        return [policy_filter.id for policy_filter in self.policy_filters]
 
     @property
     def valid_name(self) -> str:
@@ -85,3 +95,10 @@ class DynamicPolicyDestinationFilterAssociation(Base):
 
     dynamic_policy_id: Mapped[int] = mapped_column(ForeignKey("dynamic_policies.id"), primary_key=True)
     network_id: Mapped[int] = mapped_column(ForeignKey("networks.id"), primary_key=True)
+
+
+class DynamicPolicyPolicyFilterAssociation(Base):
+    __tablename__ = "dynamic_policy_policy_filter_association"
+
+    dynamic_policy_id: Mapped[int] = mapped_column(ForeignKey("dynamic_policies.id"), primary_key=True)
+    policy_id: Mapped[int] = mapped_column(ForeignKey("policies.id"), primary_key=True)

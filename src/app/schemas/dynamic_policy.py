@@ -43,6 +43,8 @@ class DynamicPolicyRead(TimestampSchema, DynamicPolicyBase):
         List[PositiveInt], Field(serialization_alias="destination_filters", default_factory=list)
     ]
 
+    policy_filters_ids: Annotated[List[PositiveInt], Field(serialization_alias="policy_filters", default_factory=list)]
+
 
 class DynamicPolicyReadBrief(TimestampSchema, DynamicPolicyBase):
     id: PositiveInt
@@ -63,6 +65,8 @@ class DynamicPolicyCreate(DynamicPolicyBase):
     source_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list)]
     destination_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list)]
 
+    policy_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list)]
+
 
 class DynamicPolicyUpdate(DynamicPolicyBase):
     filter_action: Optional[str]
@@ -74,6 +78,8 @@ class DynamicPolicyUpdate(DynamicPolicyBase):
 
     source_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list)]
     destination_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list)]
+
+    policy_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list)]
 
 
 class DynamicPolicyDelete(DynamicPolicyBase):
