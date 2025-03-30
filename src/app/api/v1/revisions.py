@@ -1,11 +1,11 @@
 import ipaddress
-from typing import Annotated, Any, List, Union
+from typing import Annotated, Any, List, Union, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
-from sqlalchemy import cast, func, or_, select
+from sqlalchemy import cast, exists, func, not_, or_, select
 from sqlalchemy.dialects.postgresql import CIDR
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,7 +38,18 @@ def is_valid_cidr(cidr: str) -> bool:
         return False
 
 
-async def fetch_addresses(db: AsyncSession, network_ids: list, return_networks: List = []) -> List:
+async def fetch_addresses(db: AsyncSession, network_ids: List[int], return_networks: List[str] = []) -> List[str]:
+    """
+    Recursively fetches network addresses in CIDR format, including nested networks.
+    
+    Parameters:
+        db (AsyncSession): The SQLAlchemy async session.
+        network_ids (List[int]): List of network IDs to fetch addresses from.
+        return_networks (List[str], optional): Accumulator for CIDR addresses. Defaults to an empty list.
+    
+    Returns:
+        List[str]: A list of unique CIDR addresses.
+    """
     result = await db.execute(select(Network).where(Network.id.in_(network_ids)))
     db_networks = result.unique().scalars().all()
 
@@ -116,69 +127,80 @@ async def fetch_networks(db: AsyncSession, filter_networks: list) -> list:
 
 async def fetch_terms(
     db: AsyncSession,
-    source_networks: list["Network"] = [],
-    destination_networks: list["Network"] = [],
-    filter_action: str = None,
-) -> list:
+    source_networks: List["Network"] = [],
+    destination_networks: List["Network"] = [],
+    filter_action: Optional[str] = None,
+) -> List["PolicyTerm"]:
+    """
+    Fetches PolicyTerm objects based on source and destination networks, filtering by action if provided.
+    
+    Parameters:
+        db (AsyncSession): The SQLAlchemy async session.
+        source_networks (List[Network], optional): List of source networks to filter by. Defaults to an empty list.
+        destination_networks (List[Network], optional): List of destination networks to filter by. Defaults to an empty list.
+        filter_action (Optional[str], optional): Action filter using SQL LIKE syntax. Defaults to any action.
+    
+    Returns:
+        List[PolicyTerm]: A list of filtered PolicyTerm objects.
+    """
     if not filter_action:
-        filter_action = "%%"
+        filter_action = "%%"  # SQL LIKE wildcard for matching any action
 
-    term_ids = []
-    source_networks_ids = [a.id for a in source_networks]
-    if source_networks:
+    # Extract network IDs for both source and destination
+    network_ids = {net.id for net in source_networks + destination_networks}
+    term_ids = set()
+
+    if network_ids:
         result = await db.execute(
-            select(PolicyTermSourceNetworkAssociation).where(
-                PolicyTermSourceNetworkAssociation.network_id.in_(source_networks_ids)
+            select(PolicyTermSourceNetworkAssociation.policy_term_id, PolicyTermDestinationNetworkAssociation.policy_term_id)
+            .outerjoin(PolicyTermDestinationNetworkAssociation, PolicyTermSourceNetworkAssociation.policy_term_id == PolicyTermDestinationNetworkAssociation.policy_term_id)
+            .where(
+                or_(
+                    PolicyTermSourceNetworkAssociation.network_id.in_(network_ids),
+                    PolicyTermDestinationNetworkAssociation.network_id.in_(network_ids)
+                )
             )
         )
-        term_ids.extend([a.policy_term_id for a in result.scalars().all()])
+        term_ids.update(result.scalars().all())
 
-    destination_networks_ids = [a.id for a in destination_networks]
-    if destination_networks:
-        result = await db.execute(
-            select(PolicyTermDestinationNetworkAssociation).where(
-                PolicyTermDestinationNetworkAssociation.network_id.in_(destination_networks_ids)
-            )
-        )
-        term_ids.extend([a.policy_term_id for a in result.scalars().all()])
-
+    # Fetch PolicyTerm objects based on the collected term IDs and filtering conditions
     result = await db.execute(
         select(PolicyTerm)
-        .where(PolicyTerm.id.in_(term_ids))
-        .where(PolicyTerm.action.ilike(filter_action))
-        .order_by(PolicyTerm.policy_id.asc(), PolicyTerm.lex_order.asc())
+        .where(
+            or_(
+                PolicyTerm.id.in_(term_ids),  # Terms matching source/destination networks
+                not_(
+                    exists().where(PolicyTerm.id == PolicyTermSourceNetworkAssociation.policy_term_id)
+                ),  # Terms with no associated source networks
+                not_(
+                    exists().where(PolicyTerm.id == PolicyTermDestinationNetworkAssociation.policy_term_id)
+                ),  # Terms with no associated destination networks
+            )
+        )
+        .where(PolicyTerm.action.ilike(filter_action))  # Apply action filter
+        .order_by(PolicyTerm.policy_id.asc(), PolicyTerm.lex_order.asc())  # Sort results
     )
 
     terms = result.unique().scalars().all()
+    filtered_terms = []
 
-    full_terms = []
-
-    ## TODO RECREATE THIS TO FILTER OUT NOT USED NETWORKS.
-    # STILL WANT TO RENDER BUT ONLY WITH AFFECTED NETWORKS
-
+    # TODO: Optimize filtering to exclude unused networks while preserving term visibility
     for term in terms:
-        # Source match
-        src_match = [
-            src_net
-            for src_net in term.source_networks
-            if set([a.id for a in term.source_networks]).issubset(source_networks_ids)
-        ]
+        # Determine if the term matches the requested source or destination networks
+        src_match = any(net.id in network_ids for net in term.source_networks)
+        dst_match = any(net.id in network_ids for net in term.destination_networks)
 
-        # Destination match
-        dst_match = [
-            dst_net
-            for dst_net in term.destination_networks
-            if set([a.id for a in term.destination_networks]).issubset(destination_networks_ids)
-        ]
+        # Include terms based on matching conditions
+        if not term.source_networks or not term.destination_networks:  # Any-Any match
+            filtered_terms.append(term)
+        elif not source_networks and dst_match:  # Match on destination networks only
+            filtered_terms.append(term)
+        elif src_match and not destination_networks:  # Match on source networks only
+            filtered_terms.append(term)
+        elif src_match and dst_match:  # Match both source and destination networks
+            filtered_terms.append(term)
 
-        if not source_networks and dst_match:
-            full_terms.append(term)
-        elif src_match and not destination_networks:
-            full_terms.append(term)
-        elif src_match and dst_match:
-            full_terms.append(term)
-
-    return full_terms
+    return filtered_terms
 
 
 @router.get("/revisions", response_model=Page[Union[PolicyRevisionReadBrief, DynamicPolicyRevisionReadBrief]])
