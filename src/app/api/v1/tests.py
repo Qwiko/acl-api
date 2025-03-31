@@ -7,7 +7,7 @@ from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-
+from ...core.utils.generate import get_policy_and_definitions_from_policy
 from ...core.cruds import case_crud, dynamic_policy_crud, policy_crud, test_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
@@ -240,6 +240,9 @@ async def get_tests_run(
         )
         tests = policy.tests
 
+
+    policy_dict, definitions = await get_policy_and_definitions_from_policy(db, policy, expanded_terms, default_action=policy.default_action if hasattr(policy, "default_action") else None)
+
     all_matches = []
     for test in tests:
         for case in test.cases:
@@ -251,8 +254,8 @@ async def get_tests_run(
                 "proto": case.protocol,
             }
 
-            match, matched_term = await run_tests(
-                db, policy, expanded_terms, case.expected_action, **{key: val for key, val in kwargs.items() if val}
+            match, matched_term = run_tests(
+               policy_dict, definitions, expanded_terms, case.expected_action, **{key: val for key, val in kwargs.items() if val}
             )
 
             obj = {"passed": match, "case": case, "matched_term": matched_term}
