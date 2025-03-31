@@ -1,15 +1,10 @@
 from typing import Annotated, List, Optional
 
-from pydantic import BaseModel, Field, field_validator, PositiveInt, AfterValidator
+from pydantic import BaseModel, Field, field_validator, PositiveInt
 
 from ..core.schemas import TimestampSchema
 
-def require_sorted_unique(v):
-    if v != sorted(set(v)):
-        raise ValueError('list entries are not unique')
-    return v
-
-RequireListUniqueDuringValidation = AfterValidator(require_sorted_unique)
+from .custom_validators import EnsureListUnique
 
 class DynamicPolicyBase(BaseModel):
     name: str  # Annotated[str, Field(min_length=2, max_length=30, examples=["This is my DynamicPolicy name"])]
@@ -64,13 +59,13 @@ class DynamicPolicyCreate(DynamicPolicyBase):
 
     default_action: Optional[str]
 
-    targets: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), RequireListUniqueDuringValidation]
-    tests: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), RequireListUniqueDuringValidation]
+    targets: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
+    tests: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
 
-    source_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), RequireListUniqueDuringValidation]
-    destination_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), RequireListUniqueDuringValidation]
+    source_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
+    destination_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
 
-    policy_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), RequireListUniqueDuringValidation]
+    policy_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
 
 
 class DynamicPolicyUpdate(DynamicPolicyBase):
@@ -78,13 +73,13 @@ class DynamicPolicyUpdate(DynamicPolicyBase):
 
     default_action: Optional[str]
 
-    targets: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), RequireListUniqueDuringValidation]
-    tests: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), RequireListUniqueDuringValidation]
+    targets: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
+    tests: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
 
-    source_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), RequireListUniqueDuringValidation]
-    destination_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), RequireListUniqueDuringValidation]
+    source_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
+    destination_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
 
-    policy_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), RequireListUniqueDuringValidation]
+    policy_filters: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
 
 
 class DynamicPolicyDelete(DynamicPolicyBase):

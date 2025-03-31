@@ -7,6 +7,8 @@ from pydantic.networks import IPvAnyAddress
 from ..core.schemas import TimestampSchema
 from .policy import PolicyTermRead, PolicyTermReadInternal
 
+from .custom_validators import EnsureListUnique
+
 
 class TestBase(BaseModel):
     name: str  # Annotated[str, Field(min_length=2, max_length=30, examples=["This is my Test name"])]
@@ -30,13 +32,13 @@ class TestCreated(TimestampSchema, TestBase):
 
 
 class TestCreate(TestBase):
-    policies: Annotated[List[PositiveInt], Field(default_factory=list)]
-    dynamic_policies: Annotated[List[PositiveInt], Field(default_factory=list)]
+    policies: Annotated[List[PositiveInt], Field(default_factory=list), EnsureListUnique]
+    dynamic_policies: Annotated[List[PositiveInt], Field(default_factory=list), EnsureListUnique]
 
 
 class TestUpdate(TestBase):
-    policies: Annotated[List[PositiveInt], Field(default_factory=list)]
-    dynamic_policies: Annotated[List[PositiveInt], Field(default_factory=list)]
+    policies: Annotated[List[PositiveInt], Field(default_factory=list), EnsureListUnique]
+    dynamic_policies: Annotated[List[PositiveInt], Field(default_factory=list), EnsureListUnique]
 
 
 class TestDelete(TestBase):

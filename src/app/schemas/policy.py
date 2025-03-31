@@ -6,6 +6,7 @@ from pydantic_core import InitErrorDetails, PydanticCustomError
 
 from ..core.schemas import TimestampSchema
 
+from .custom_validators import EnsureListUnique
 
 class PolicyBase(BaseModel):
     name: str  # Annotated[str, Field(min_length=2, max_length=30, examples=["This is my Policy name"])]
@@ -29,13 +30,13 @@ class PolicyCreated(TimestampSchema, PolicyBase):
 
 
 class PolicyCreate(PolicyBase):
-    targets: Annotated[Optional[List[PositiveInt]], Field(default_factory=list)]
-    tests: Annotated[Optional[List[PositiveInt]], Field(default_factory=list)]
+    targets: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
+    tests: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
 
 
 class PolicyUpdate(PolicyBase):
-    targets: Annotated[Optional[List[PositiveInt]], Field(default_factory=list)]
-    tests: Annotated[Optional[List[PositiveInt]], Field(default_factory=list)]
+    targets: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
+    tests: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
 
 
 class PolicyUpdateInternal(PolicyUpdate):

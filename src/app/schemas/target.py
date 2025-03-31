@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field, PositiveInt, field_validator
 
 from ..core.schemas import TimestampSchema
 
+from .custom_validators import EnsureListUnique
+
 
 class TargetBase(BaseModel):
     name: str
@@ -44,13 +46,13 @@ class TargetCreated(TimestampSchema, TargetBase):
 
 
 class TargetCreate(TargetBase):
-    policies: Annotated[List[PositiveInt], Field(default_factory=list)]
-    dynamic_policies: Annotated[List[PositiveInt], Field(default_factory=list)]
+    policies: Annotated[List[PositiveInt], Field(default_factory=list), EnsureListUnique]
+    dynamic_policies: Annotated[List[PositiveInt], Field(default_factory=list), EnsureListUnique]
 
 
 class TargetUpdate(TargetBase):
-    policies: Annotated[List[PositiveInt], Field(default_factory=list)]
-    dynamic_policies: Annotated[List[PositiveInt], Field(default_factory=list)]
+    policies: Annotated[List[PositiveInt], Field(default_factory=list), EnsureListUnique]
+    dynamic_policies: Annotated[List[PositiveInt], Field(default_factory=list), EnsureListUnique]
 
 
 class TargetDelete(TargetBase):
