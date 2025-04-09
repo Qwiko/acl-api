@@ -80,6 +80,13 @@ async def erase_policy(
     # current_user: Annotated[PolicyRead, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
+    # Check if policy is being used a nested policyterm
+    
+    nested_term = await db.execute(select(PolicyTerm).where(PolicyTerm.nested_policy_id == id))
+    
+    if nested_term.scalars().all():
+        raise HTTPException(status_code=404, detail="Policy is being used in a nested policy term")
+    
     policy = await policy_crud.delete(db, id)
     return {"message": "Policy deleted"}
 
