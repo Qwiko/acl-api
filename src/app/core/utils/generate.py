@@ -182,7 +182,6 @@ async def get_expanded_terms(db: AsyncSession, terms: List[PolicyTerm]) -> List[
 
 
 async def get_service_protocols(db: AsyncSession, service: Service) -> List[str]:
-    
     protocols = []
 
     for entry in service.entries:
@@ -276,12 +275,10 @@ def get_aerleon_terms(terms: List[PolicyTerm], protocol_map) -> List[dict]:
                 if protocol in ["icmp"]:
                     del term_dict["destination-port"]
                     del term_dict["source-port"]
-                
-                temp_dict = term_dict.copy() # Copying when iterating
+
+                temp_dict = term_dict.copy()  # Copying when iterating
                 temp_dict.update({"name": term.valid_name + "-" + protocol, "protocol": protocol})
                 terms_arr.append(temp_dict)
-    
-    
     return terms_arr
 
 
@@ -308,9 +305,9 @@ async def get_policy_and_definitions_from_policy(
     expanded_terms = await get_expanded_terms(db, terms)
 
     protocol_map = await get_protocol_map(db, expanded_terms)
-    
+
     terms_arr = get_aerleon_terms(expanded_terms, protocol_map)
-    
+
     if default_action:
         default_term = {}
         if default_action == "accept" or default_action == "accept-log":
@@ -347,7 +344,7 @@ async def get_policy_and_definitions_from_policy(
             }
         ],
     }
-    
+
     return policy_dict, definitions
 
 
@@ -370,6 +367,8 @@ async def generate_acl_from_policy(
     config = configs[configs.keys()[0]]
     if target.generator == "nftables":
         config = config.replace("table inet filtering_policies", f"table bridge {policy.valid_name}")
-        config = config.replace("type filter hook input priority 0; policy drop;", "type filter hook postrouting priority 0;")
+        config = config.replace(
+            "type filter hook input priority 0; policy drop;", "type filter hook postrouting priority 0;"
+        )
 
     return config, policy.valid_name
