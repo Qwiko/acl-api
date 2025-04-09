@@ -147,12 +147,10 @@ async def get_definitions(db: AsyncSession, negated_terms: List[PolicyTerm] = []
 
                 entries_arr.append(nested_service.name)
             else:
-                entries_arr.append(
-                    {
-                        "protocol": service_entry.protocol,
-                        "port": service_entry.port,
-                    }
-                )
+                entry_arr = {"protocol": service_entry.protocol}
+                if service_entry.port:
+                    entry_arr.update({"port": service_entry.port})
+                entries_arr.append(entry_arr)
         service_dict.update({service.name: entries_arr})
 
     return {"networks": network_dict, "services": service_dict}
@@ -272,6 +270,10 @@ def get_aerleon_terms(terms: List[PolicyTerm], protocol_map) -> List[dict]:
             protocols = list(set(protocols))
 
             for protocol in protocols:
+                if protocol in ["icmp"]:
+                    del term_dict["destination-port"]
+                    del term_dict["source-port"]
+                
                 temp_dict = term_dict.copy() # Copying when iterating
                 temp_dict.update({"name": term.valid_name + "-" + protocol, "protocol": protocol})
                 terms_arr.append(temp_dict)
@@ -337,7 +339,7 @@ async def get_policy_and_definitions_from_policy(
             }
         ],
     }
-
+    
     return policy_dict, definitions
 
 
@@ -350,9 +352,13 @@ async def generate_acl_from_policy(
     """
     policy_dict, definitions = await get_policy_and_definitions_from_policy(db, policy, terms, target, default_action)
 
-    config = Generate(
+    configs = Generate(
         [policy_dict],
         definitions,
     )
+    config = configs[configs.keys()[0]]
+    if target.generator == "nftables":
+        config = config.replace("table inet filtering_policies", f"table bridge {policy.valid_name}")
+        config = config.replace("type filter hook input priority 0; policy drop;", "type filter hook postrouting priority 0;")
 
-    return config[config.keys()[0]], policy.valid_name
+    return config, policy.valid_name
