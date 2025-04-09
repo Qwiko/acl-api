@@ -145,29 +145,34 @@ async def fetch_terms(
         List[PolicyTerm]: A list of filtered PolicyTerm objects.
     """
     # Extract network IDs for both source and destination
-    network_ids = {net.id for net in source_networks + destination_networks}
+    source_network_ids = {net.id for net in source_networks}
+    destination_network_ids = {net.id for net in destination_networks}
+
     term_ids = set()
 
-    if network_ids:
+    if source_network_ids:
         result = await db.execute(
             select(
                 PolicyTermSourceNetworkAssociation.policy_term_id,
-                PolicyTermDestinationNetworkAssociation.policy_term_id,
-            )
-            .outerjoin(
-                PolicyTermDestinationNetworkAssociation,
-                PolicyTermSourceNetworkAssociation.policy_term_id
-                == PolicyTermDestinationNetworkAssociation.policy_term_id,
-            )
-            .where(
+            ).where(
                 or_(
-                    PolicyTermSourceNetworkAssociation.network_id.in_(network_ids),
-                    PolicyTermDestinationNetworkAssociation.network_id.in_(network_ids),
+                    PolicyTermSourceNetworkAssociation.network_id.in_(source_network_ids),
                 )
             )
         )
         term_ids.update(result.scalars().all())
 
+    if destination_network_ids:
+        result = await db.execute(
+            select(
+                PolicyTermDestinationNetworkAssociation.policy_term_id,
+            ).where(
+                or_(
+                    PolicyTermDestinationNetworkAssociation.network_id.in_(destination_network_ids),
+                )
+            )
+        )
+        term_ids.update(result.scalars().all())
     # Fetch PolicyTerm objects based on the collected term IDs and filtering conditions
 
     conditions = [
@@ -182,7 +187,7 @@ async def fetch_terms(
         )
     ]
 
-    stmt = select(PolicyTerm).order_by(PolicyTerm.policy_id.asc(), PolicyTerm.lex_order.asc())  # Sort results
+    stmt = select(PolicyTerm).distinct().order_by(PolicyTerm.policy_id.asc(), PolicyTerm.lex_order.asc())  # Sort results
 
     if policy_ids:
         conditions.append(PolicyTerm.policy_id.in_(policy_ids))
@@ -198,20 +203,23 @@ async def fetch_terms(
     terms = result.unique().scalars().all()
     filtered_terms = []
 
-    # TODO: Optimize filtering to exclude unused networks while preserving term visibility
     for term in terms:
         # Determine if the term matches the requested source or destination networks
-        src_match = any(net.id in network_ids for net in term.source_networks)
-        dst_match = any(net.id in network_ids for net in term.destination_networks)
+        src_match = any(net.id in source_network_ids for net in term.source_networks)
+        dst_match = any(net.id in destination_network_ids for net in term.destination_networks)
 
         # Include terms based on matching conditions
-        if not term.source_networks or not term.destination_networks:  # Any-Any match
+        if src_match and dst_match:
             filtered_terms.append(term)
-        elif not source_networks and dst_match:  # Match on destination networks only
+        # No source networks means Any to some destination
+        elif not source_networks and dst_match:
             filtered_terms.append(term)
-        elif src_match and not destination_networks:  # Match on source networks only
+        # No destination networks means some source Any
+        elif src_match and not destination_networks:
             filtered_terms.append(term)
-        elif src_match and dst_match:  # Match both source and destination networks
+        
+        # Any to Any terms
+        elif not term.source_networks and not term.destination_networks:  
             filtered_terms.append(term)
 
     return filtered_terms
