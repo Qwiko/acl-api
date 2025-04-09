@@ -55,9 +55,9 @@ class DynamicPolicyCreated(TimestampSchema, DynamicPolicyBase):
 
 
 class DynamicPolicyCreate(DynamicPolicyBase):
-    filter_action: Optional[str]
+    filter_action: Optional[str] = None
 
-    default_action: Optional[str]
+    default_action: Optional[str] = None
 
     targets: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
     tests: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
@@ -69,9 +69,9 @@ class DynamicPolicyCreate(DynamicPolicyBase):
 
 
 class DynamicPolicyUpdate(DynamicPolicyBase):
-    filter_action: Optional[str]
+    filter_action: Optional[str] = None
 
-    default_action: Optional[str]
+    default_action: Optional[str] = None
 
     targets: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
     tests: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
