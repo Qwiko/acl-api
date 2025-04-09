@@ -55,7 +55,7 @@ class ServiceEntryBase(BaseModel):
         if nested_service_id is not None and (protocol is not None or port is not None):
             raise ValueError("cannot use nested_service_id together with protocol and port")
 
-        if (protocol and not port) or (port and not protocol):
+        if protocol in ["tcp", "udp"] and ((protocol and not port) or (port and not protocol)):
             raise ValueError("protocol and port must be declared together")
 
         if not protocol and not port and not nested_service_id:
