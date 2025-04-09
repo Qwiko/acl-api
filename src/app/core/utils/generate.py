@@ -3,9 +3,12 @@ from typing import Any, List, Tuple
 
 from aerleon.api import Generate
 from aerleon.lib import naming
+from aerleon.aclgen import ACLGeneratorError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+
+from fastapi import HTTPException
 
 from ...models import Network, Policy, PolicyTerm, Service, Target
 
@@ -277,6 +280,8 @@ def get_aerleon_terms(terms: List[PolicyTerm], protocol_map) -> List[dict]:
                 temp_dict = term_dict.copy() # Copying when iterating
                 temp_dict.update({"name": term.valid_name + "-" + protocol, "protocol": protocol})
                 terms_arr.append(temp_dict)
+    
+    
     return terms_arr
 
 
@@ -305,7 +310,7 @@ async def get_policy_and_definitions_from_policy(
     protocol_map = await get_protocol_map(db, expanded_terms)
     
     terms_arr = get_aerleon_terms(expanded_terms, protocol_map)
-
+    
     if default_action:
         default_term = {}
         if default_action == "accept" or default_action == "accept-log":
@@ -322,6 +327,9 @@ async def get_policy_and_definitions_from_policy(
             default_term.update({"logging": True})
         terms_arr.append(default_term)
 
+    # Remove eventual duplicates
+    terms_arr = {term["name"]: term for term in terms_arr}.values()
+
     # negated terms
     negated_terms = [term for term in expanded_terms if term.negate_source_networks or term.negate_destination_networks]
 
@@ -331,7 +339,7 @@ async def get_policy_and_definitions_from_policy(
     definitions.ParseDefinitionsObject(defs, "")
 
     policy_dict = {
-        "filename": "not_used",
+        "filename": policy.valid_name,
         "filters": [
             {
                 "header": {"targets": target_dict, "comment": policy.comment},
@@ -351,11 +359,14 @@ async def generate_acl_from_policy(
     Returns acl as text and filter_name
     """
     policy_dict, definitions = await get_policy_and_definitions_from_policy(db, policy, terms, target, default_action)
+    try:
+        configs = Generate(
+            [policy_dict],
+            definitions,
+        )
+    except ACLGeneratorError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    configs = Generate(
-        [policy_dict],
-        definitions,
-    )
     config = configs[configs.keys()[0]]
     if target.generator == "nftables":
         config = config.replace("table inet filtering_policies", f"table bridge {policy.valid_name}")
