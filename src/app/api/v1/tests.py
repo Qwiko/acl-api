@@ -7,14 +7,14 @@ from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from ...core.utils.generate import get_policy_and_definitions_from_policy
+
 from ...core.cruds import case_crud, dynamic_policy_crud, policy_crud, test_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
 from ...core.utils.acl_test import run_tests
-from ...core.utils.generate import get_expanded_terms
+from ...core.utils.generate import get_expanded_terms, get_policy_and_definitions_from_policy
 from ...filters.test import TestCaseFilter, TestFilter
-from ...models import Test, TestCase, Policy
+from ...models import Policy, Test, TestCase
 from ...schemas.test import (
     TestCaseCreate,
     TestCaseRead,
@@ -25,6 +25,7 @@ from ...schemas.test import (
     TestResultRead,
     TestUpdate,
 )
+from .revisions import fetch_addresses, fetch_networks, fetch_terms
 
 router = APIRouter(tags=["tests"])
 
@@ -192,9 +193,6 @@ async def erase_test_case(
     return {"message": "Test case deleted"}
 
 
-from .revisions import fetch_addresses, fetch_networks, fetch_terms
-
-
 @router.get("/run_tests", response_model=TestResultRead)
 async def get_tests_run(
     request: Request,
@@ -240,8 +238,9 @@ async def get_tests_run(
         )
         tests = policy.tests
 
-
-    policy_dict, definitions = await get_policy_and_definitions_from_policy(db, policy, expanded_terms, default_action=policy.default_action if hasattr(policy, "default_action") else None)
+    policy_dict, definitions = await get_policy_and_definitions_from_policy(
+        db, policy, expanded_terms, default_action=policy.default_action if hasattr(policy, "default_action") else None
+    )
 
     all_matches = []
     for test in tests:
@@ -255,7 +254,11 @@ async def get_tests_run(
             }
 
             match, matched_term = run_tests(
-               policy_dict, definitions, expanded_terms, case.expected_action, **{key: val for key, val in kwargs.items() if val}
+                policy_dict,
+                definitions,
+                expanded_terms,
+                case.expected_action,
+                **{key: val for key, val in kwargs.items() if val},
             )
 
             obj = {"passed": match, "case": case, "matched_term": matched_term}
