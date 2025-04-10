@@ -1,13 +1,14 @@
 import ipaddress
-from typing import Annotated, Any, List, Union, Optional
+from typing import Annotated, Any, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
-from sqlalchemy import cast, exists, func, not_, or_, select, and_
+from sqlalchemy import and_, cast, exists, func, not_, or_, select
 from sqlalchemy.dialects.postgresql import CIDR
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from ...core.cruds import dynamic_policy_crud, policy_crud, revision_crud
 from ...core.db.database import async_get_db
@@ -38,7 +39,7 @@ def is_valid_cidr(cidr: str) -> bool:
         return False
 
 
-async def fetch_addresses(db: AsyncSession, network_ids: List[int], return_networks: List[str] = []) -> List[str]:
+async def fetch_addresses(db: AsyncSession, network_ids: List[int], return_networks: List[str] = None) -> List[str]:
     """
     Recursively fetches network addresses in CIDR format, including nested networks.
 
@@ -50,6 +51,9 @@ async def fetch_addresses(db: AsyncSession, network_ids: List[int], return_netwo
     Returns:
         List[str]: A list of unique CIDR addresses.
     """
+    if return_networks is None:
+        return_networks = []
+    
     result = await db.execute(select(Network).where(Network.id.in_(network_ids)))
     db_networks = result.unique().scalars().all()
 
@@ -68,7 +72,10 @@ async def fetch_addresses(db: AsyncSession, network_ids: List[int], return_netwo
     return await fetch_addresses(db, nested_ids, return_networks)
 
 
-async def fetch_nested_networks(db: AsyncSession, network_ids: list[int], nested_networks: List = []) -> List:
+async def fetch_nested_networks(db: AsyncSession, network_ids: list[int], nested_networks: List = None) -> List:
+    if not nested_networks:
+        nested_networks = []
+    
     result = await db.execute(select(NetworkAddress).where(NetworkAddress.nested_network_id.in_(network_ids)))
     addresses = result.scalars().all()
 
@@ -93,7 +100,7 @@ async def fetch_networks(db: AsyncSession, filter_networks: list) -> list:
     network_addresses = result.unique().scalars().all()
 
     network_addresses_ids = [a.id for a in network_addresses]
-
+    
     # Unique list
     network_ids = list(set([a.network_id for a in network_addresses]))
 
@@ -148,46 +155,77 @@ async def fetch_terms(
     source_network_ids = {net.id for net in source_networks}
     destination_network_ids = {net.id for net in destination_networks}
 
-    term_ids = set()
 
+    stmt = (
+        select(PolicyTerm).distinct().order_by(PolicyTerm.policy_id.asc(), PolicyTerm.lex_order.asc())
+    )  # Sort results
+
+    stmt = stmt.join(
+        PolicyTermSourceNetworkAssociation,
+        PolicyTerm.id == PolicyTermSourceNetworkAssociation.policy_term_id,
+        isouter=True,
+    ).join(
+        PolicyTermDestinationNetworkAssociation,
+        PolicyTerm.id == PolicyTermDestinationNetworkAssociation.policy_term_id,
+        isouter=True,
+    )
+
+    policy_term_alias = aliased(PolicyTerm)
+
+    source_condition = None
     if source_network_ids:
-        result = await db.execute(
-            select(
-                PolicyTermSourceNetworkAssociation.policy_term_id,
-            ).where(
-                or_(
-                    PolicyTermSourceNetworkAssociation.network_id.in_(source_network_ids),
-                )
-            )
+        # If we have some source filter, only match on that
+        source_condition = or_(
+            and_(
+                PolicyTerm.negate_source_networks.is_(False),
+                PolicyTermSourceNetworkAssociation.network_id.in_(source_network_ids),
+            ),
+            and_(
+                PolicyTerm.negate_source_networks.is_(True),
+                PolicyTermSourceNetworkAssociation.network_id.notin_(source_network_ids),
+            ),
         )
-        term_ids.update(result.scalars().all())
+    else:
+        # Otherwise we need to match everything else
+        source_condition = PolicyTermSourceNetworkAssociation.network_id.notin_(source_network_ids)
 
+    destination_condition = None
     if destination_network_ids:
-        result = await db.execute(
-            select(
-                PolicyTermDestinationNetworkAssociation.policy_term_id,
-            ).where(
-                or_(
-                    PolicyTermDestinationNetworkAssociation.network_id.in_(destination_network_ids),
-                )
-            )
+        # If we have some destination filter, only match on that
+        destination_condition = or_(
+            and_(
+                PolicyTerm.negate_destination_networks.is_(False),
+                PolicyTermDestinationNetworkAssociation.network_id.in_(destination_network_ids),
+            ),
+            and_(
+                PolicyTerm.negate_destination_networks.is_(True),
+                PolicyTermDestinationNetworkAssociation.network_id.notin_(destination_network_ids),
+            ),
         )
-        term_ids.update(result.scalars().all())
-    # Fetch PolicyTerm objects based on the collected term IDs and filtering conditions
+    else:
+        # Otherwise we need to match everything else
+        destination_condition = PolicyTermDestinationNetworkAssociation.network_id.notin_(destination_network_ids)
 
     conditions = [
-        or_(
-            PolicyTerm.id.in_(term_ids),  # Terms matching source/destination networks
-            not_(
-                exists().where(PolicyTerm.id == PolicyTermSourceNetworkAssociation.policy_term_id)
-            ),  # Terms with no associated source networks
-            not_(
-                exists().where(PolicyTerm.id == PolicyTermDestinationNetworkAssociation.policy_term_id)
-            ),  # Terms with no associated destination networks
-        )
+        and_(
+            or_(
+                source_condition,  # Match some source networks
+                not_(
+                    exists().where(
+                        policy_term_alias.id == PolicyTermSourceNetworkAssociation.policy_term_id
+                    )  # Or match Any source terms
+                ),
+            ),
+            or_(
+                destination_condition,  # Match some destination networks
+                not_(
+                    exists().where(
+                        policy_term_alias.id == PolicyTermDestinationNetworkAssociation.policy_term_id
+                    )  # Or match Any destination terms
+                ),
+            ),
+        ),
     ]
-
-    stmt = select(PolicyTerm).distinct().order_by(PolicyTerm.policy_id.asc(), PolicyTerm.lex_order.asc())  # Sort results
 
     if policy_ids:
         conditions.append(PolicyTerm.policy_id.in_(policy_ids))
@@ -201,28 +239,8 @@ async def fetch_terms(
     result = await db.execute(stmt)
 
     terms = result.unique().scalars().all()
-    filtered_terms = []
 
-    for term in terms:
-        # Determine if the term matches the requested source or destination networks
-        src_match = any(net.id in source_network_ids for net in term.source_networks)
-        dst_match = any(net.id in destination_network_ids for net in term.destination_networks)
-
-        # Include terms based on matching conditions
-        if src_match and dst_match:
-            filtered_terms.append(term)
-        # No source networks means Any to some destination
-        elif not source_networks and dst_match:
-            filtered_terms.append(term)
-        # No destination networks means some source Any
-        elif src_match and not destination_networks:
-            filtered_terms.append(term)
-        
-        # Any to Any terms
-        elif not term.source_networks and not term.destination_networks:  
-            filtered_terms.append(term)
-
-    return filtered_terms
+    return terms
 
 
 @router.get("/revisions", response_model=Page[Union[PolicyRevisionReadBrief, DynamicPolicyRevisionReadBrief]])
