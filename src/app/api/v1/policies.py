@@ -112,21 +112,15 @@ async def read_policy_usage(request: Request, id: int, db: Annotated[AsyncSessio
 # Terms
 @router.get("/policies/{policy_id}/terms", response_model=Page[Union[PolicyTermRead, PolicyTermNestedRead]])
 async def read_policy_terms(
+    policy_id: int,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     policy_term_filter: PolicyTermFilter = FilterDepends(PolicyTermFilter),
 ) -> Any:
-    query = select(PolicyTerm)
+    query = select(PolicyTerm).where(PolicyTerm.policy_id == policy_id)
     query = policy_term_filter.filter(query)
     query = policy_term_filter.sort(query)
 
     return await paginate(db, query)
-
-
-@router.get("/policies/{policy_id}/terms2", response_model=list[Union[PolicyTermRead, PolicyTermNestedRead]])
-async def get_policy_terms_with_positions(db: Annotated[AsyncSession, Depends(async_get_db)], policy_id: int):
-    stmt = select(PolicyTerm).where(PolicyTerm.policy_id == policy_id)
-    result = await db.execute(stmt)
-    return result.unique().scalars().all()  # Returns [(id, name, position), ...]
 
 
 @router.post(
