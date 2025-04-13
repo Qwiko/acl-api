@@ -16,6 +16,7 @@ class DynamicPolicyRevisionRead(TimestampSchema, DynamicPolicyRevisionBase):
     dynamic_policy_id: int
 
     json_data: Annotated[Json[Any], Field(description="Dynamic policy JSON dump")]
+    expanded_terms: Annotated[Json[Any], Field(description="Dynamic policy expanded_terms dump")]
     configs: Annotated[List["DynamicPolicyRevisionConfigRead"], Field(default_factory=list)]
 
 
@@ -69,6 +70,7 @@ class PolicyRevisionRead(TimestampSchema, PolicyRevisionBase):
     policy_id: int
 
     json_data: Annotated[Json[Any], Field(description="Policy JSON dump")]
+    expanded_terms: Annotated[Json[Any], Field(description="Policy expanded_terms dump")]
     configs: Annotated[List["PolicyRevisionConfigRead"], Field(default_factory=list)]
 
 

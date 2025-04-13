@@ -150,10 +150,6 @@ class BaseCRUD(Generic[T]):
 
         # Convert Pydantic model to dict
         data_dict = obj_data.model_dump()
-
-        # Merge extra_data if provided
-        if extra_data:
-            data_dict.update(extra_data)
             
         many_to_many_data = {}
 
@@ -163,6 +159,10 @@ class BaseCRUD(Generic[T]):
 
         for field in many_to_many_data.keys():
             data_dict[field] = [] # Remove M2M fields from update_dict
+
+        # Merge extra_data if provided
+        if extra_data:
+            data_dict.update(extra_data)
 
         new_obj = self.model(**data_dict)
 

@@ -370,5 +370,9 @@ async def generate_acl_from_policy(
         config = config.replace(
             "type filter hook input priority 0; policy drop;", "type filter hook postrouting priority 0;"
         )
+        # Temphack
+        config = config.replace(
+            '"drop', '" drop'
+        )
 
     return config, policy.valid_name

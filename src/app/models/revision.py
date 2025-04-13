@@ -30,7 +30,8 @@ class Revision(Base, TimestampsMixin):
     comment: Mapped[Optional[str]] = mapped_column(String)
 
     json_data: Mapped[JSON] = mapped_column(JSON, nullable=False)
-
+    expanded_terms: Mapped[JSON] = mapped_column(JSON, nullable=False)
+    
     policy_id: Mapped[int | None] = mapped_column(ForeignKey("policies.id"), nullable=True, default=None)
     policy: Mapped["Policy"] = relationship(
         foreign_keys=[policy_id], back_populates="revisions", lazy="selectin", default=None
