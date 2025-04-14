@@ -1,14 +1,14 @@
 from typing import Annotated, Any
 
-from aerleon.lib.plugin_supervisor import BUILTIN_GENERATORS
 from fastapi import APIRouter, Depends, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
 from fastapi_pagination import paginate as dict_paginate
 from fastapi_pagination.ext.sqlalchemy import paginate
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.sql import and_
 
 from ...core.cruds import publisher_crud, target_crud
 from ...core.db.database import async_get_db
@@ -17,10 +17,7 @@ from ...filters.publisher import PublisherFilter
 from ...models import Publisher
 from ...schemas.publisher import PublisherCreate, PublisherRead, PublisherReadBrief, PublisherUpdate
 
-
 router = APIRouter(tags=["publishers"])
-
-
 
 
 # publishers
@@ -38,21 +35,26 @@ async def read_publishers(
 
 @router.post("/publishers", response_model=PublisherRead, status_code=201)
 async def write_publisher(
-    request: Request,
     values: PublisherCreate,
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
-    
-    data_dict = values.model_dump()
-    
-    del data_dict["target"]
-    
+    # Check if the publisher name exists
+    existing_publisher = await publisher_crud.get_all(db, filter_by={"name": values.name})
+    if existing_publisher:
+        raise RequestValidationError([{"loc": ["body", "name"], "msg": "A publisher with this name already exists"}])
+
+    # Check if the target exists
     target = await target_crud.get(db, values.target)
-    
-    publisher = Publisher(**data_dict, target=target)
-    
-    db.add(publisher)
-    await db.commit()
+    if target is None:
+        raise RequestValidationError([{"loc": ["body", "target"], "msg": "That target does not exist"}])
+
+    del values.target
+
+    publisher = await publisher_crud.create(
+        db,
+        values,
+        {"target": target},
+    )
 
     return publisher
 
@@ -70,10 +72,8 @@ async def read_publisher(request: Request, id: int, db: Annotated[AsyncSession, 
 @router.put("/publishers/{id}", response_model=PublisherRead)
 # @cache("{username}_post_cache", resource_id_name="id", pattern_to_invalidate_extra=["{username}_posts:*"])
 async def put_publishers(
-    request: Request,
     id: int,
     values: PublisherUpdate,
-    # current_user: Annotated[UserRead, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     publisher = await publisher_crud.get(db, id)
@@ -81,11 +81,26 @@ async def put_publishers(
     if publisher is None:
         raise NotFoundException("Publisher not found")
 
-   
+    # Check if the publisher name exists
+    result = await db.execute(
+        select(Publisher).where(and_(Publisher.name == values.name, Publisher.id.notin_([publisher.id])))
+    )
+    existing_publisher = result.unique().scalars().one_or_none()
+    if existing_publisher:
+        raise RequestValidationError([{"loc": ["body", "name"], "msg": "A publisher with this name already exists"}])
+
+    # Check if the target exists
+    target = await target_crud.get(db, values.target)
+    if target is None:
+        raise RequestValidationError([{"loc": ["body", "target"], "msg": "That target does not exist"}])
+
+    del values.target
+
     publisher = await publisher_crud.update(
         db,
         publisher.id,
         values,
+        {"target": target},
     )
 
     return publisher

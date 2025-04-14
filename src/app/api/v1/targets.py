@@ -2,6 +2,7 @@ from typing import Annotated, Any
 
 from aerleon.lib.plugin_supervisor import BUILTIN_GENERATORS
 from fastapi import APIRouter, Depends, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
 from fastapi_pagination import paginate as dict_paginate
@@ -69,10 +70,14 @@ async def read_targets(
 
 @router.post("/targets", response_model=TargetRead, status_code=201)
 async def write_target(
-    request: Request,
     values: TargetCreate,
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
+    # Check if target name is already in use
+    existing_target = await target_crud.get_all(db, filter_by={"name": values.name})
+    if existing_target:
+        raise RequestValidationError([{"loc": ["body", "name"], "msg": "A target with this name already exists"}])
+
     dynamic_policies = await dynamic_policy_crud.get_all(
         db, load_relations=False, filter_by={"id": values.dynamic_policies}
     )

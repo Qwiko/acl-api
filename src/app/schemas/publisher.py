@@ -1,7 +1,6 @@
 from typing import Annotated, List, Optional
 
 
-
 from aerleon.lib.plugin_supervisor import BUILTIN_GENERATORS
 from pydantic import BaseModel, Field, PositiveInt, field_validator
 
@@ -12,14 +11,13 @@ from .custom_validators import EnsureListUnique
 
 
 class PublisherBase(BaseModel):
-    name: str
+    name: Annotated[str, Field(min_length=1, max_length=255)]
 
 
 class PublisherRead(TimestampSchema, PublisherBase):
     id: int
     target_id: Annotated[PositiveInt, Field(serialization_alias="target")]
-    ssh_config: Optional["PublisherSSHConfig"]
-
+    ssh_config: Optional["PublisherSSHConfig"]  # = {}
 
 
 class PublisherReadBrief(TimestampSchema, PublisherBase):

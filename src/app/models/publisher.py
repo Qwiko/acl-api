@@ -19,18 +19,19 @@ else:
     Target = "Target"
     Revision = "Revision"
     Test = "Test"
-    
+
+
 class Publisher(Base, SerializeMixin, TimestampsMixin):
     __tablename__ = "publishers"
 
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
-    
+
     target_id: Mapped[int] = mapped_column(ForeignKey("targets.id"), init=False)
 
     target: Mapped["Target"] = relationship(
         "Target", foreign_keys=[target_id], back_populates="publishers", single_parent=True
     )
-    
+
     name: Mapped[str] = mapped_column(String, unique=True)
 
     target = relationship("Target", lazy="selectin", back_populates="publishers")
@@ -49,10 +50,10 @@ class PublisherSSHConfig(Base, SerializeMixin, TimestampsMixin):
     username: Mapped[str] = mapped_column(String)
     password: Mapped[Optional[str]] = mapped_column(String)
     ssh_key: Mapped[Optional[Text]] = mapped_column(String)
-    
+
     publisher_id: Mapped[int] = mapped_column(ForeignKey("publishers.id"))
     publisher = relationship("Publisher", foreign_keys=[publisher_id], back_populates="ssh_config")
-    
+
     port: Mapped[int] = mapped_column(String, default=22)
 
 
@@ -62,7 +63,11 @@ class PublisherJob(Base, SerializeMixin, TimestampsMixin):
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
 
     publisher_id: Mapped[int] = mapped_column(ForeignKey("publishers.id"))
-    
+
     publisher: Mapped["Publisher"] = relationship("Publisher", back_populates="publisher_jobs")
-    
-    arq_job_id: Mapped[str] = mapped_column(String)
+
+    status: Mapped[str] = mapped_column(String)
+
+    output: Mapped[Optional[str]] = mapped_column(Text, init=False)
+
+    arq_job_id: Mapped[str] = mapped_column(String, nullable=True)

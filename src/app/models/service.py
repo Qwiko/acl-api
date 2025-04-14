@@ -20,6 +20,7 @@ class Service(Base, TimestampsMixin):
         back_populates="service",
         cascade="all, delete",
         lazy="selectin",
+        init=False,
     )
 
 

@@ -1,25 +1,54 @@
-import uuid as uuid_pkg
+import random
 
+from aerleon.lib.plugin_supervisor import BUILTIN_GENERATORS
 from sqlalchemy.orm import Session
 
 from src.app import models
-from src.app.core.security import get_password_hash
 from tests.conftest import fake
 
 
-def create_user(db: Session, is_super_user: bool = False) -> models.User:
-    _user = models.User(
+def create_network(db: Session) -> models.Network:
+    _network = models.Network(name=fake.name())
+
+    db.add(_network)
+    db.commit()
+    db.refresh(_network)
+
+    return _network
+
+
+def create_service(db: Session) -> models.Service:
+    _service = models.Service(name=fake.name())
+
+    db.add(_service)
+    db.commit()
+    db.refresh(_service)
+
+    return _service
+
+
+def create_target(db: Session) -> models.Target:
+    _target = models.Target(
         name=fake.name(),
-        username=fake.user_name(),
-        email=fake.email(),
-        hashed_password=get_password_hash(fake.password()),
-        profile_image_url=fake.image_url(),
-        uuid=uuid_pkg.uuid4(),
-        is_superuser=is_super_user,
+        generator=random.choice(BUILTIN_GENERATORS)[0],
+        inet_mode=random.choice(["inet", "inet6", "mixed"]),
     )
 
-    db.add(_user)
+    db.add(_target)
     db.commit()
-    db.refresh(_user)
+    db.refresh(_target)
 
-    return _user
+    return _target
+
+
+def create_publisher(db: Session, target: models.Target) -> models.Publisher:
+    _publisher = models.Publisher(
+        name=fake.name(),
+        target=target,
+    )
+
+    db.add(_publisher)
+    db.commit()
+    db.refresh(_publisher)
+
+    return _publisher

@@ -12,13 +12,22 @@ from sqlalchemy.dialects.postgresql import CIDR
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from ...core.cruds import dynamic_policy_crud, policy_crud, publisher_crud, revision_crud
+from ...core.cruds import dynamic_policy_crud, policy_crud, publisher_crud, publisher_job_crud, revision_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
 from ...core.utils import queue
 from ...core.utils.generate import generate_acl_from_policy, get_expanded_terms
 from ...filters.revision import RevisionFilter
-from ...models import DynamicPolicy, Network, NetworkAddress, Policy, PolicyTerm, Revision, RevisionConfig
+from ...models import (
+    DynamicPolicy,
+    Network,
+    NetworkAddress,
+    Policy,
+    PolicyTerm,
+    PublisherJob,
+    Revision,
+    RevisionConfig,
+)
 from ...models.policy import PolicyTermDestinationNetworkAssociation, PolicyTermSourceNetworkAssociation
 from ...schemas.dynamic_policy import DynamicPolicyRead
 from ...schemas.job import Job
@@ -429,13 +438,21 @@ async def publish_revision(
         publishers = await publisher_crud.get_all(db, load_relations=True, filter_by={"target_id": target_id})
 
         if not publishers:
-            print("No publishers found for target_id:", target_id)
             continue
 
         for publisher in publishers:
             # Create publisher_job here and pass to arq. So we can save eventual results there.
+            publisher_job = PublisherJob(
+                publisher_id=publisher.id, publisher=publisher, status="pending", arq_job_id=None
+            )
+            db.add(publisher_job)
+            await db.commit()
+            await db.refresh(publisher_job)
 
-            job = await queue.pool.enqueue_job("push_ssh", **{"revision_id": id, "publisher_id": publisher.id})
+            job = await queue.pool.enqueue_job(
+                "push_ssh", **{"revision_id": id, "publisher_id": publisher.id, "publisher_job_id": publisher_job.id}
+            )
+            publisher_job.arq_job_id = job.job_id
+            await db.commit()
 
-            print("JOB:", job.job_id)
     return {"message": "Publish started"}

@@ -8,10 +8,12 @@ from ..models import Service, ServiceEntry
 
 
 class ServiceEntryFilter(Filter):
+    protocol: Optional[str] = None
     port: Optional[str] = None
 
     class Constants(Filter.Constants):
         model = ServiceEntry
+
 
 class ServiceFilter(Filter):
     id: Optional[int] = None
@@ -24,7 +26,7 @@ class ServiceFilter(Filter):
     name__like: Optional[str] = None
     name__neq: Optional[str] = None
     entries: Optional[ServiceEntryFilter] = FilterDepends(with_prefix("entries", ServiceEntryFilter))
-    
+
     order_by: list[str] = ["id"]
 
     q: Optional[str] = None
@@ -33,5 +35,3 @@ class ServiceFilter(Filter):
         model = Service
         search_model_fields = ["name"]
         search_field_name = "q"
-
-

@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.session import Session
 
+from src.app.core.db.database import Base
 from src.app.core.config import settings
 from src.app.main import app
 
@@ -18,6 +19,12 @@ local_session = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine
 
 
 fake = Faker()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def drop_all_tables_before_tests():
+    # Drop all tables before any tests are run
+    Base.metadata.drop_all(bind=sync_engine)
 
 
 @pytest.fixture(scope="session")

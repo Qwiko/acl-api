@@ -46,16 +46,14 @@ async def read_policies(
 
 
 @router.post("/policies", response_model=PolicyCreated, status_code=201)
-async def write_policy(
-    request: Request, values: PolicyCreate, db: Annotated[AsyncSession, Depends(async_get_db)]
-) -> Any:
+async def write_policy(values: PolicyCreate, db: Annotated[AsyncSession, Depends(async_get_db)]) -> Any:
     # extra_data={"targets":[], "terms": []}
     policy = await policy_crud.create(db, values, {"targets": []})
     return policy
 
 
 @router.get("/policies/{id}", response_model=PolicyRead)
-async def read_policy(request: Request, id: int, db: Annotated[AsyncSession, Depends(async_get_db)]) -> Any:
+async def read_policy(id: int, db: Annotated[AsyncSession, Depends(async_get_db)]) -> Any:
     policy = await policy_crud.get(db, id, load_relations=True)
     return policy
 
@@ -63,7 +61,6 @@ async def read_policy(request: Request, id: int, db: Annotated[AsyncSession, Dep
 @router.put("/policies/{id}", response_model=PolicyCreated)
 # # @cache("{username}_post_cache", resource_id_name="id", pattern_to_invalidate_extra=["{username}_posts:*"])
 async def put_policy(
-    request: Request,
     id: int,
     values: PolicyUpdate,
     db: Annotated[AsyncSession, Depends(async_get_db)],
@@ -75,24 +72,23 @@ async def put_policy(
 @router.delete("/policies/{id}")
 # # @cache("{username}_post_cache", resource_id_name="id", to_invalidate_extra={"{username}_posts": "{username}"})
 async def erase_policy(
-    request: Request,
     id: int,
     # current_user: Annotated[PolicyRead, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     # Check if policy is being used a nested policyterm
-    
+
     nested_term = await db.execute(select(PolicyTerm).where(PolicyTerm.nested_policy_id == id))
-    
+
     if nested_term.scalars().all():
         raise HTTPException(status_code=404, detail="Policy is being used in a nested policy term")
-    
+
     policy = await policy_crud.delete(db, id)
     return {"message": "Policy deleted"}
 
 
 @router.get("/policies/{id}/usage", response_model=PolicyUsage)
-async def read_policy_usage(request: Request, id: int, db: Annotated[AsyncSession, Depends(async_get_db)]) -> Any:
+async def read_policy_usage(id: int, db: Annotated[AsyncSession, Depends(async_get_db)]) -> Any:
     policy = await policy_crud.get(db, id, True)
 
     if not policy:

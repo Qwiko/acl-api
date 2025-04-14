@@ -6,11 +6,12 @@ from ...models import (
     Revision,
     PolicyTerm,
     Publisher,
+    PublisherJob,
     Service,
     ServiceEntry,
     Target,
     Test,
-    TestCase
+    TestCase,
 )
 from ..utils.crud import BaseCRUD
 
@@ -33,3 +34,4 @@ test_crud = BaseCRUD(Test)
 case_crud = BaseCRUD(TestCase)
 
 publisher_crud = BaseCRUD(Publisher)
+publisher_job_crud = BaseCRUD(PublisherJob)

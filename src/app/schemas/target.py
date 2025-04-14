@@ -1,4 +1,4 @@
-from typing import Annotated, List
+from typing import Annotated, List, Optional
 
 from aerleon.lib.plugin_supervisor import BUILTIN_GENERATORS
 from pydantic import BaseModel, Field, PositiveInt, field_validator
@@ -6,15 +6,24 @@ from pydantic import BaseModel, Field, PositiveInt, field_validator
 from ..core.schemas import TimestampSchema
 
 from .custom_validators import EnsureListUnique
+from enum import Enum
+
+
+class TargetInetModeEnum(str, Enum):
+    INET = "inet"
+    INET6 = "inet6"
+    MIXED = "mixed"
 
 
 class TargetBase(BaseModel):
-    name: str
-    
-    generator: Annotated[str | None, Field(examples=["cisco", "juniper"], default=None)]
+    name: Annotated[str, Field(min_length=1, max_length=255)]
 
-    inet_mode: Annotated[str | None, Field(examples=["inet", "inet6", "mixed"], default=None)]
-    
+    generator: Annotated[str, Field(examples=["cisco", "juniper"])]
+
+    inet_mode: Annotated[
+        Optional[TargetInetModeEnum], Field(examples=["inet", "inet6", "mixed"], default=TargetInetModeEnum.INET)
+    ]
+
     @field_validator("generator")
     @classmethod
     def validate_generator(cls, v: str) -> str:
@@ -22,12 +31,6 @@ class TargetBase(BaseModel):
             raise ValueError("not a valid generator.")
         return v
 
-    @field_validator("inet_mode")
-    @classmethod
-    def validate_inet_mode(cls, v: str) -> str:
-        if v not in [None, "inet", "inet6", "mixed"]:
-            raise ValueError("not a valid inet mode.")
-        return v
 
 class TargetRead(TimestampSchema, TargetBase):
     id: int

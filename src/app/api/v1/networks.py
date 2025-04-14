@@ -1,19 +1,20 @@
 import asyncio
-from typing import Annotated, Any, List
+from typing import Annotated, Any, Callable, List
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Request
+from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.sql import exists, or_
+from sqlalchemy.sql import and_, exists, or_
 
 from ...core.cruds import address_crud, network_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
-from ...filters.network import NetworkFilter
+from ...filters.network import NetworkAddressFilter, NetworkFilter
 from ...models import DynamicPolicy, Network, NetworkAddress, PolicyTerm
 from ...models.dynamic_policy import DynamicPolicyDestinationFilterAssociation, DynamicPolicySourceFilterAssociation
 from ...models.policy import PolicyTermDestinationNetworkAssociation, PolicyTermSourceNetworkAssociation
@@ -29,6 +30,8 @@ from ...schemas.network import (
 )
 
 router = APIRouter(tags=["networks"])
+
+func: Callable
 
 
 @router.get("/networks", response_model=Page[NetworkRead])
@@ -48,15 +51,15 @@ async def read_networks(
 
 @router.post("/networks", response_model=NetworkCreated, status_code=201)
 async def write_network(
-    request: Request,
-    data: NetworkCreate,
+    values: NetworkCreate,
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
-    network_dict = data.model_dump()
-    network = Network(addresses=[], **network_dict)
+    # Check if the network name already exists
+    found_network = await network_crud.get_all(db, filter_by={"name": values.name})
+    if found_network:
+        raise RequestValidationError([{"loc": ["body", "name"], "msg": "A network with this name already exists"}])
 
-    db.add(network)
-    await db.commit()
+    network = await network_crud.create(db, values)
 
     return network
 
@@ -74,12 +77,22 @@ async def read_network(request: Request, id: int, db: Annotated[AsyncSession, De
 @router.put("/networks/{id}", response_model=NetworkCreated)
 # @cache("{username}_post_cache", resource_id_name="id", pattern_to_invalidate_extra=["{username}_posts:*"])
 async def put_network(
-    request: Request,
     id: int,
     values: NetworkUpdate,
     # current_user: Annotated[NetworkRead, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, Any]:
+    # Check if the network exists
+    network = await network_crud.get(db, id)
+    if not network:
+        raise NotFoundException("Network not found")
+
+    # Check if the network name exists
+    result = await db.execute(select(Network).where(and_(Network.name == values.name, Network.id.notin_([id]))))
+    existing_network = result.unique().scalars().one_or_none()
+    if existing_network:
+        raise RequestValidationError([{"loc": ["body", "name"], "msg": "A network with this name already exists"}])
+
     updated_network = await network_crud.update(db, id, values)
     return updated_network
 
@@ -90,6 +103,10 @@ async def erase_network(
     id: int,
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> None:
+    nested_address = await address_crud.get_all(db, filter_by={"nested_network_id": id})
+    if nested_address:
+        raise HTTPException(status_code=403, detail="Cannot delete network with nested addresses")
+
     await network_crud.delete(db, id)
     return {"message": "Network deleted"}
 
@@ -160,31 +177,21 @@ async def read_network_usage(request: Request, id: int, db: Annotated[AsyncSessi
 
 
 # NetworkAddress
-@router.get("/networks/{network_id}/addresses", response_model=List[NetworkAddressRead])
+@router.get("/networks/{network_id}/addresses", response_model=Page[NetworkAddressRead])
 async def read_addresses(
-    request: Request,
-    response: Response,
     network_id: int,
     db: Annotated[AsyncSession, Depends(async_get_db)],
-    page: int = 1,
-    items_per_page: int = 10,
+    network_address_filter: NetworkAddressFilter = FilterDepends(NetworkAddressFilter),
 ) -> List:
-    db_network = await db.execute(select(Network).where(Network.id == network_id))
-    if db_network is None:
-        raise NotFoundException("Network not found")
+    query = select(NetworkAddress).where(NetworkAddress.network_id == network_id)
+    query = network_address_filter.filter(query)
+    query = network_address_filter.sort(query)
 
-    db_addresses = await db.execute(select(NetworkAddress).where(NetworkAddress.network_id == network_id))
-
-    addresses = db_addresses.scalars().all()
-    response.headers["content-range"] = "addresses 0-2/2"
-    response.headers["Access-Control-Expose-Headers"] = "Content-Range"
-
-    return addresses
+    return await paginate(db, query)
 
 
 @router.post("/networks/{network_id}/addresses", response_model=NetworkAddressRead, status_code=201)
 async def write_network_address(
-    request: Request,
     network_id: int,
     values: NetworkAddressCreate,
     db: Annotated[AsyncSession, Depends(async_get_db)],
@@ -193,6 +200,17 @@ async def write_network_address(
 
     if network is None:
         raise NotFoundException("Network not found")
+
+    # Check if the nested address exists
+    if values.nested_network_id:
+        nested_network = await network_crud.get(db, values.nested_network_id)
+        if nested_network is None:
+            raise RequestValidationError([{"loc": ["body", "nested_network_id"], "msg": "Nested network not found"}])
+
+    # Check if the address already exists
+    existing_address = await address_crud.get_all(db, filter_by={"address": values.address, "network_id": network.id})
+    if existing_address:
+        raise RequestValidationError([{"loc": ["body", "address"], "msg": "Network address already exists"}])
 
     network_address = await address_crud.create(db, values, {"network_id": network.id, "network": network})
 
@@ -262,5 +280,5 @@ async def erase_network_address(
         raise NotFoundException("Network address not found")
 
     await address_crud.delete(db, address.id)
-    
+
     return {"message": "Network address deleted"}
