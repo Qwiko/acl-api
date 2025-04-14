@@ -7,10 +7,12 @@ from sqlalchemy_mixins.timestamp import TimestampsMixin
 from ..core.db.database import Base
 
 if TYPE_CHECKING:
+    from .deployment import Deployment
     from .dynamic_policy import DynamicPolicy
     from .policy import Policy
     from .target import Target
 else:
+    Deployment = "Deployment"
     Target = "Target"
     DynamicPolicy = "DynamicPolicy"
     Policy = "Policy"
@@ -30,6 +32,7 @@ class Revision(Base, TimestampsMixin):
     comment: Mapped[Optional[str]] = mapped_column(String)
 
     json_data: Mapped[JSON] = mapped_column(JSON, nullable=False)
+    expanded_terms: Mapped[JSON] = mapped_column(JSON, nullable=False)
 
     policy_id: Mapped[int | None] = mapped_column(ForeignKey("policies.id"), nullable=True, default=None)
     policy: Mapped["Policy"] = relationship(
@@ -45,6 +48,10 @@ class Revision(Base, TimestampsMixin):
 
     configs: Mapped[List["RevisionConfig"]] = relationship(
         "RevisionConfig", back_populates="revision", cascade="all, delete-orphan", lazy="selectin", init=False
+    )
+
+    deployments: Mapped[List["Deployment"]] = relationship(
+        "Deployment", back_populates="revision", cascade="all, delete-orphan", init=False
     )
 
 

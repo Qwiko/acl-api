@@ -38,6 +38,9 @@ sqlalchemy-mixins = {git = "https://github.com/absent1706/sqlalchemy-mixins.git"
 ruff = "^0.6.9"
 fastapi-pagination = "^0.12.34"
 fastapi-filter = "^2.0.1"
+paramiko = "^3.5.1"
+netmiko = "^4.5.0"
+pytest-cov = "^6.1.1"
 
 
 [build-system]

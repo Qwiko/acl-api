@@ -1,7 +1,8 @@
 import asyncio
-from typing import Annotated, Any, List
+from typing import Annotated, Any, Callable, List
 
 from fastapi import APIRouter, Depends, Request, Response
+from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
@@ -9,12 +10,12 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from sqlalchemy.sql import exists, or_
+from sqlalchemy.sql import and_, exists, or_
 
 from ...core.cruds import entry_crud, service_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
-from ...filters.service import ServiceFilter
+from ...filters.service import ServiceEntryFilter, ServiceFilter
 from ...models import PolicyTerm, Service, ServiceEntry
 from ...models.policy import PolicyTermDestinationServiceAssociation, PolicyTermSourceServiceAssociation
 from ...schemas.service import (
@@ -29,6 +30,8 @@ from ...schemas.service import (
 )
 
 router = APIRouter(tags=["services"])
+
+func: Callable
 
 
 @router.get("/services", response_model=Page[ServiceRead])
@@ -47,14 +50,13 @@ async def read_services(
 
 
 @router.post("/services", response_model=ServiceCreated, status_code=201)
-async def write_service(
-    request: Request, data: ServiceCreate, db: Annotated[AsyncSession, Depends(async_get_db)]
-) -> dict:
-    service_dict = data.model_dump()
-    service = Service(entries=[], **service_dict)
+async def write_service(values: ServiceCreate, db: Annotated[AsyncSession, Depends(async_get_db)]) -> dict:
+    # Check if the service name already exists
+    found_service = await service_crud.get_all(db, filter_by={"name": values.name})
+    if found_service:
+        raise RequestValidationError([{"loc": ["body", "name"], "msg": "A service with this name already exists"}])
 
-    db.add(service)
-    await db.commit()
+    service = await service_crud.create(db, values)
 
     return service
 
@@ -79,31 +81,36 @@ async def put_service(
     # current_user: Annotated[ServiceRead, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, Any]:
-    db_service_result = await db.execute(select(Service).where(Service.id == id))
-    db_service = db_service_result.scalars().first()
-    if db_service is None:
+    # Check if the service exists
+    service = await service_crud.get(db, id)
+    if service is None:
         raise NotFoundException("Service not found")
 
-    for key, value in vars(values).items():
-        setattr(db_service, key, value)
+    # Check if the service name exists
+    result = await db.execute(select(Service).where(and_(Service.name == values.name, Service.id.notin_([id]))))
+    existing_service = result.unique().scalars().one_or_none()
+    if existing_service:
+        raise RequestValidationError([{"loc": ["body", "name"], "msg": "A service with this name already exists"}])
 
-    await db.commit()
-    await db.refresh(db_service)
-    return db_service
+    updated_service = await service_crud.update(db, id, values)
+    return updated_service
 
 
 @router.delete("/services/{id}")
 async def erase_service(
-    request: Request,
     id: int,
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> None:
+    nested_entry = await entry_crud.get_all(db, filter_by={"nested_service_id": id})
+    if nested_entry:
+        raise HTTPException(status_code=403, detail="Cannot delete service with nested entry")
+
     await service_crud.delete(db, id)
     return {"message": "Service deleted"}
 
 
 @router.get("/services/{id}/usage", response_model=ServiceUsage)
-async def read_service_usage(request: Request, id: int, db: Annotated[AsyncSession, Depends(async_get_db)]) -> Any:
+async def read_service_usage(id: int, db: Annotated[AsyncSession, Depends(async_get_db)]) -> Any:
     service = await service_crud.get(db, id, True)
 
     if not service:
@@ -146,24 +153,17 @@ async def read_service_usage(request: Request, id: int, db: Annotated[AsyncSessi
 
 
 # ServiceEntry
-@router.get("/services/{service_id}/entries", response_model=List[ServiceEntryRead])
+@router.get("/services/{service_id}/entries", response_model=Page[ServiceEntryRead])
 async def read_service_entries(
-    request: Request,
-    response: Response,
     service_id: int,
     db: Annotated[AsyncSession, Depends(async_get_db)],
+    service_entry_filter: ServiceEntryFilter = FilterDepends(ServiceEntryFilter),
 ) -> List:
-    db_service = await db.execute(select(Service).where(Service.id == service_id))
-    if db_service is None:
-        raise NotFoundException("Service not found")
+    query = select(ServiceEntry).where(ServiceEntry.service_id == service_id)
+    query = service_entry_filter.filter(query)
+    query = service_entry_filter.sort(query)
 
-    db_entries = await db.execute(select(ServiceEntry).where(ServiceEntry.service_id == service_id))
-
-    entries = db_entries.scalars().all()
-    response.headers["content-range"] = "entries 0-2/2"
-    response.headers["Access-Control-Expose-Headers"] = "Content-Range"
-
-    return entries
+    return await paginate(db, query)
 
 
 @router.post("/services/{service_id}/entries", response_model=ServiceEntryRead, status_code=201)
@@ -178,6 +178,21 @@ async def write_entries(
     if service is None:
         raise NotFoundException("Service not found")
 
+    # Check if the nested service exists
+    if values.nested_service_id:
+        nested_service = await service_crud.get(db, values.nested_service_id)
+        if nested_service is None:
+            raise RequestValidationError([{"loc": ["body", "nested_service_id"], "msg": "Nested service not found"}])
+
+    # Check if the entry already exists
+    existing_entry = await entry_crud.get_all(
+        db, filter_by={"protocol": values.protocol, "port": values.port, "service_id": service.id}
+    )
+    if existing_entry:
+        raise RequestValidationError(
+            [{"loc": ["body", "protocol", "port"], "msg": "Network protocol + port already exists"}]
+        )
+
     service_entries = await entry_crud.create(db, values, {"service_id": service.id, "service": service})
 
     return service_entries
@@ -191,12 +206,12 @@ async def read_service_entries(
     if service is None:
         raise NotFoundException("Service not found")
     filter_by = {"service_id": service.id}
-    address = await entry_crud.get(db, id, filter_by=filter_by)
+    entry = await entry_crud.get(db, id, filter_by=filter_by)
 
-    if address is None:
-        raise NotFoundException("Service address not found")
+    if entry is None:
+        raise NotFoundException("Service entry not found")
 
-    return address
+    return entry
 
 
 @router.put("/services/{service_id}/entries/{id}", response_model=ServiceEntryRead)
@@ -215,12 +230,12 @@ async def put_service_entries(
         raise NotFoundException("Service not found")
 
     filter_by = {"service_id": service.id}
-    address = await entry_crud.get(db, id, filter_by=filter_by)
+    entry = await entry_crud.get(db, id, filter_by=filter_by)
 
-    if address is None:
-        raise NotFoundException("Service address not found")
+    if entry is None:
+        raise NotFoundException("Service entry not found")
 
-    service_entry = await entry_crud.update(db, address.id, values)
+    service_entry = await entry_crud.update(db, entry.id, values)
 
     return service_entry
 

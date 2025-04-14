@@ -5,11 +5,13 @@ from ...models import (
     Policy,
     Revision,
     PolicyTerm,
+    Deployer,
+    Deployment,
     Service,
     ServiceEntry,
     Target,
     Test,
-    TestCase
+    TestCase,
 )
 from ..utils.crud import BaseCRUD
 
@@ -30,3 +32,6 @@ target_crud = BaseCRUD(Target)
 
 test_crud = BaseCRUD(Test)
 case_crud = BaseCRUD(TestCase)
+
+deployer_crud = BaseCRUD(Deployer)
+deployment_crud = BaseCRUD(Deployment)

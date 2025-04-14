@@ -1,21 +1,11 @@
 from typing import Optional
 
-
-from fastapi_filter import FilterDepends, with_prefix
 from fastapi_filter.contrib.sqlalchemy import Filter
 
-from ..models import Service, ServiceEntry
+from ..models import Deployer
 
 
-class ServiceEntryFilter(Filter):
-    protocol: Optional[str] = None
-    port: Optional[str] = None
-
-    class Constants(Filter.Constants):
-        model = ServiceEntry
-
-
-class ServiceFilter(Filter):
+class DeployerFilter(Filter):
     id: Optional[int] = None
     id__in: Optional[list[int]] = None
     id__ilike: Optional[str] = None
@@ -25,13 +15,11 @@ class ServiceFilter(Filter):
     name__ilike: Optional[str] = None
     name__like: Optional[str] = None
     name__neq: Optional[str] = None
-    entries: Optional[ServiceEntryFilter] = FilterDepends(with_prefix("entries", ServiceEntryFilter))
 
     order_by: list[str] = ["id"]
-
     q: Optional[str] = None
 
     class Constants(Filter.Constants):
-        model = Service
+        model = Deployer
         search_model_fields = ["name"]
         search_field_name = "q"

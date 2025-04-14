@@ -9,8 +9,10 @@ from .dynamic_policy import DynamicPolicy
 from .policy import Policy
 
 if TYPE_CHECKING:
+    from .deployer import Deployer
     from .revision import RevisionConfig
 else:
+    Deployer = "Deployer"
     RevisionConfig = "RevisionConfig"
 
 
@@ -53,6 +55,13 @@ class Target(Base, TimestampsMixin):
         init=False,
     )
 
+    deployers: Mapped[List["Deployer"]] = relationship(
+        foreign_keys="Deployer.target_id",
+        back_populates="target",
+        cascade="all, delete",
+        init=False,
+    )
+
     @property
     def dynamic_policies_ids(self) -> List[int]:
         return [dynamic_policy.id for dynamic_policy in self.dynamic_policies]
@@ -60,3 +69,7 @@ class Target(Base, TimestampsMixin):
     @property
     def policies_ids(self) -> List[int]:
         return [policy.id for policy in self.policies]
+
+    @property
+    def deployers_ids(self) -> List[int]:
+        return [deployer.id for deployer in self.deployers]

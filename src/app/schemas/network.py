@@ -8,7 +8,7 @@ from ..core.schemas import TimestampSchema
 
 
 class NetworkBase(BaseModel):
-    name: str  # Annotated[str, Field(min_length=2, max_length=30, examples=["This is my network name"])]
+    name: Annotated[str, Field(min_length=1, max_length=255)]
 
 
 class NetworkRead(TimestampSchema, NetworkBase):

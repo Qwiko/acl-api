@@ -1,6 +1,8 @@
 import ipaddress
-from typing import Annotated, Any, List, Optional, Union
+import json
+from typing import Annotated, Any, List, Optional, Union, Callable
 
+from arq.jobs import Job as ArqJob
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
@@ -10,15 +12,26 @@ from sqlalchemy.dialects.postgresql import CIDR
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from ...core.cruds import dynamic_policy_crud, policy_crud, revision_crud
+from ...core.cruds import dynamic_policy_crud, policy_crud, deployer_crud, deployment_crud, revision_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
-from ...core.utils.generate import generate_acl_from_policy
+from ...core.utils import queue
+from ...core.utils.generate import generate_acl_from_policy, get_expanded_terms
 from ...filters.revision import RevisionFilter
-from ...models import Network, NetworkAddress, Policy, PolicyTerm, Revision, RevisionConfig
+from ...models import (
+    DynamicPolicy,
+    Network,
+    NetworkAddress,
+    Policy,
+    PolicyTerm,
+    Deployment,
+    Revision,
+    RevisionConfig,
+)
 from ...models.policy import PolicyTermDestinationNetworkAssociation, PolicyTermSourceNetworkAssociation
 from ...schemas.dynamic_policy import DynamicPolicyRead
-from ...schemas.policy import PolicyRead
+
+from ...schemas.policy import PolicyRead, PolicyTermRead
 from ...schemas.revision import (
     DynamicPolicyRevisionCreate,
     DynamicPolicyRevisionRead,
@@ -29,6 +42,8 @@ from ...schemas.revision import (
 )
 
 router = APIRouter(tags=["revisions"])
+
+func: Callable
 
 
 def is_valid_cidr(cidr: str) -> bool:
@@ -53,7 +68,7 @@ async def fetch_addresses(db: AsyncSession, network_ids: List[int], return_netwo
     """
     if return_networks is None:
         return_networks = []
-    
+
     result = await db.execute(select(Network).where(Network.id.in_(network_ids)))
     db_networks = result.unique().scalars().all()
 
@@ -75,7 +90,7 @@ async def fetch_addresses(db: AsyncSession, network_ids: List[int], return_netwo
 async def fetch_nested_networks(db: AsyncSession, network_ids: list[int], nested_networks: List = None) -> List:
     if not nested_networks:
         nested_networks = []
-    
+
     result = await db.execute(select(NetworkAddress).where(NetworkAddress.nested_network_id.in_(network_ids)))
     addresses = result.scalars().all()
 
@@ -100,7 +115,7 @@ async def fetch_networks(db: AsyncSession, filter_networks: list) -> list:
     network_addresses = result.unique().scalars().all()
 
     network_addresses_ids = [a.id for a in network_addresses]
-    
+
     # Unique list
     network_ids = list(set([a.network_id for a in network_addresses]))
 
@@ -154,7 +169,6 @@ async def fetch_terms(
     # Extract network IDs for both source and destination
     source_network_ids = {net.id for net in source_networks}
     destination_network_ids = {net.id for net in destination_networks}
-
 
     stmt = (
         select(PolicyTerm).distinct().order_by(PolicyTerm.policy_id.asc(), PolicyTerm.lex_order.asc())
@@ -295,15 +309,25 @@ async def write_revision(
         if not terms:
             raise HTTPException(status_code=403, detail="No terms found for dynamic policy")
 
-        pydantic_model = DynamicPolicyRead.model_validate(dynamic_policy, from_attributes=True)
+        policy_pydantic_model = DynamicPolicyRead.model_validate(dynamic_policy, from_attributes=True)
 
-        # Convert to JSON
-        json_data = pydantic_model.model_dump_json()
+        policy_json_data = policy_pydantic_model.model_dump_json()
+
+        terms_pydantic_model = [
+            PolicyTermRead.model_validate(expanded_term, from_attributes=True) for expanded_term in terms
+        ]
+
+        terms_json_data = json.dumps([t.model_dump() for t in terms_pydantic_model])
 
         revision = await revision_crud.create(
             db,
             values,
-            {"dynamic_policy_id": dynamic_policy.id, "dynamic_policy": dynamic_policy, "json_data": json_data},
+            {
+                "dynamic_policy_id": dynamic_policy.id,
+                "dynamic_policy": dynamic_policy,
+                "json_data": policy_json_data,
+                "expanded_terms": terms_json_data,
+            },
         )
 
         for target in dynamic_policy.targets:
@@ -326,18 +350,31 @@ async def write_revision(
         if policy is None:
             raise NotFoundException("Policy not found")
 
-        # Convert SQLAlchemy object to Pydantic model
-        pydantic_model = PolicyRead.model_validate(policy, from_attributes=True)
+        policy_pydantic_model = PolicyRead.model_validate(policy, from_attributes=True)
 
-        # Convert to JSON
-        json_data = pydantic_model.model_dump_json()
+        policy_json_data = policy_pydantic_model.model_dump_json()
+
+        expanded_terms = await get_expanded_terms(db, terms)
+
+        terms_pydantic_model = [
+            PolicyTermRead.model_validate(expanded_term, from_attributes=True) for expanded_term in expanded_terms
+        ]
+
+        terms_json_data = json.dumps([t.model_dump() for t in terms_pydantic_model])
 
         revision = await revision_crud.create(
-            db, values, {"policy_id": policy.id, "policy": policy, "json_data": json_data}
+            db,
+            values,
+            {
+                "policy_id": policy.id,
+                "policy": policy,
+                "json_data": policy_json_data,
+                "expanded_terms": terms_json_data,
+            },
         )
 
         for target in policy.targets:
-            acl_filter, filter_name = await generate_acl_from_policy(db, policy, policy.terms, target)
+            acl_filter, filter_name = await generate_acl_from_policy(db, policy, expanded_terms, target)
 
             revision.configs.append(
                 RevisionConfig(
@@ -385,3 +422,45 @@ async def erase_revision(
 ) -> Any:
     await revision_crud.delete(db, id)
     return {"message": "Revision deleted"}
+
+
+@router.post("/revisions/{id}/deploy", response_model=Any, status_code=201)
+async def deploy_revision(
+    id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+) -> Any:
+    revision: Revision = await revision_crud.get(db, id, load_relations=True)
+
+    if revision is None:
+        raise NotFoundException("Revision not found")
+
+    target_ids = [config.target_id for config in revision.configs]
+
+    deployment_ids = []
+
+    for target_id in target_ids:
+        deployers = await deployer_crud.get_all(db, load_relations=True, filter_by={"target_id": target_id})
+
+        if not deployers:
+            continue
+
+        for deployer in deployers:
+            deployment = Deployment(
+                deployer_id=deployer.id,
+                deployer=deployer,
+                revision=revision,
+                revision_id=revision.id,
+                status="pending",
+            )
+            db.add(deployment)
+            await db.commit()
+            await db.refresh(deployment)
+
+            await queue.pool.enqueue_job(
+                "push_ssh",
+                _job_id=str(deployment.id),
+                **{"revision_id": id, "deployer_id": deployer.id, "deployment_id": deployment.id},
+            )
+            deployment_ids.append(deployment.id)
+
+    return {"message": "Publish started", "deployment_ids": deployment_ids}

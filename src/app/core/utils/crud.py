@@ -33,9 +33,7 @@ async def paginate_query_with_range(
 
     if not load_relations:
         stmt = stmt.options(noload("*"))
-        
-    
-    
+
     # if load_relations:
     #     # relationships = [rel.key for rel in inspect(model).relationships]
     #     # stmt = stmt.options(*(selectinload(getattr(model, rel)) for rel in relationships))
@@ -106,7 +104,7 @@ class BaseCRUD(Generic[T]):
             stmt = stmt.where(*filters)
 
         result = await db.execute(stmt)
-        return result.unique().scalars().first()
+        return result.unique().scalars().one_or_none()
 
     async def get_paginated_with_range(
         self,
@@ -145,38 +143,38 @@ class BaseCRUD(Generic[T]):
         result = await db.execute(stmt)
         return result.unique().scalars().all()
 
-    async def create(self, db: AsyncSession, obj_data: dict, extra_data: Optional[Dict] = None):
+    async def create(self, db: AsyncSession, obj_data: P, extra_data: Optional[Dict] = None):
         """Create a new record with optional additional parameters."""
 
         # Convert Pydantic model to dict
         data_dict = obj_data.model_dump()
 
+        many_to_many_data = {}
+
         # Merge extra_data if provided
         if extra_data:
             data_dict.update(extra_data)
-            
-        many_to_many_data = {}
 
         for field, value in data_dict.items():
-            if isinstance(value, list):
+            if isinstance(value, list) and all(isinstance(item, int) for item in value):
                 many_to_many_data[field] = value
 
         for field in many_to_many_data.keys():
-            data_dict[field] = [] # Remove M2M fields from update_dict
+            data_dict[field] = []  # Remove M2M fields from update_dict
 
         new_obj = self.model(**data_dict)
 
         db.add(new_obj)
         await db.commit()
         await db.refresh(new_obj)
-        
-         # Update M2M relationships
+
+        # Update M2M relationships
         for field, related_ids in many_to_many_data.items():
             await self._update_m2m_relationship(db, new_obj, field, related_ids)
 
         return new_obj
 
-    async def update(self, db: AsyncSession, obj_id: int, update_data: P) -> T:
+    async def update(self, db: AsyncSession, obj_id: int, update_data: P, extra_data: Optional[Dict] = None) -> T:
         """Update a record using a Pydantic model, including handling M2M relationships."""
 
         stmt = select(self.model).where(self.model.id == obj_id)
@@ -190,8 +188,12 @@ class BaseCRUD(Generic[T]):
         update_dict = update_data.model_dump(exclude_unset=True)
         many_to_many_data = {}
 
+        # Merge extra_data if provided
+        if extra_data:
+            update_dict.update(extra_data)
+
         for field, value in update_dict.items():
-            if isinstance(value, list):
+            if isinstance(value, list) and all(isinstance(item, int) for item in value):
                 many_to_many_data[field] = value
 
         for field in many_to_many_data.keys():

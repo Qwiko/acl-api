@@ -14,6 +14,7 @@ class TestBase(BaseModel):
     name: str  # Annotated[str, Field(min_length=2, max_length=30, examples=["This is my Test name"])]
     comment: Annotated[str | None, Field(max_length=300, examples=["This is my test comment"], default=None)]
 
+
 class TestRead(TimestampSchema, TestBase):
     id: int
     policies_ids: Annotated[List[PositiveInt], Field(serialization_alias="policies", default_factory=list)]

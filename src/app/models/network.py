@@ -23,6 +23,7 @@ class Network(Base, SerializeMixin, TimestampsMixin):
         back_populates="network",
         cascade="all, delete",
         lazy="selectin",
+        init=False,
     )
 
 

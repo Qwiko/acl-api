@@ -7,7 +7,7 @@ from ..core.schemas import TimestampSchema
 
 
 class ServiceBase(BaseModel):
-    name: str  # Annotated[str, Field(min_length=2, max_length=30, examples=["This is my Service name"])]
+    name: Annotated[str, Field(min_length=1, max_length=255)]
 
 
 class ServiceRead(TimestampSchema, ServiceBase):
@@ -60,6 +60,21 @@ class ServiceEntryBase(BaseModel):
 
         if not protocol and not port and not nested_service_id:
             raise ValueError("need to have protocol and port or nested_service_id")
+
+        return self
+
+    @model_validator(mode="after")
+    def icmp_validator(self: Self) -> Self:
+        protocol = self.protocol
+        port = self.port
+        nested_service_id = self.nested_service_id
+
+        # Skip when nested_service_id is not None
+        if nested_service_id is not None:
+            return self
+
+        if protocol == "icmp" and port is not None:
+            raise ValueError("port must be None when protocol is icmp")
 
         return self
 
