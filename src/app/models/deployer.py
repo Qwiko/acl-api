@@ -12,37 +12,39 @@ from ..core.db.database import Base
 from ..schemas.custom_validators import DNSHostname
 
 if TYPE_CHECKING:
+    from .deployment import Deployment
     from .revision import Revision
     from .target import Target
     from .test import Test
 else:
+    Deployment = "Deployment"
     Target = "Target"
     Revision = "Revision"
     Test = "Test"
 
 
-class Publisher(Base, SerializeMixin, TimestampsMixin):
-    __tablename__ = "publishers"
+class Deployer(Base, SerializeMixin, TimestampsMixin):
+    __tablename__ = "deployers"
 
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
 
     target_id: Mapped[int] = mapped_column(ForeignKey("targets.id"), init=False)
 
     target: Mapped["Target"] = relationship(
-        "Target", foreign_keys=[target_id], back_populates="publishers", single_parent=True
+        "Target", foreign_keys=[target_id], back_populates="deployers", single_parent=True
     )
 
     name: Mapped[str] = mapped_column(String, unique=True)
 
-    target = relationship("Target", lazy="selectin", back_populates="publishers")
+    target = relationship("Target", lazy="selectin", back_populates="deployers")
 
-    ssh_config = relationship("PublisherSSHConfig", lazy="selectin", uselist=False, back_populates="publisher")
+    ssh_config = relationship("DeployerSSHConfig", lazy="selectin", uselist=False, back_populates="deployer")
 
-    publisher_jobs = relationship("PublisherJob", back_populates="publisher")
+    deployments = relationship("Deployment", back_populates="deployer")
 
 
-class PublisherSSHConfig(Base, SerializeMixin, TimestampsMixin):
-    __tablename__ = "publisher_ssh_configs"
+class DeployerSSHConfig(Base, SerializeMixin, TimestampsMixin):
+    __tablename__ = "deployer_ssh_configs"
 
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
 
@@ -51,23 +53,7 @@ class PublisherSSHConfig(Base, SerializeMixin, TimestampsMixin):
     password: Mapped[Optional[str]] = mapped_column(String)
     ssh_key: Mapped[Optional[Text]] = mapped_column(String)
 
-    publisher_id: Mapped[int] = mapped_column(ForeignKey("publishers.id"))
-    publisher = relationship("Publisher", foreign_keys=[publisher_id], back_populates="ssh_config")
+    deployer_id: Mapped[int] = mapped_column(ForeignKey("deployers.id"))
+    deployer = relationship("Deployer", foreign_keys=[deployer_id], back_populates="ssh_config")
 
     port: Mapped[int] = mapped_column(String, default=22)
-
-
-class PublisherJob(Base, SerializeMixin, TimestampsMixin):
-    __tablename__ = "publisher_jobs"
-
-    id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
-
-    publisher_id: Mapped[int] = mapped_column(ForeignKey("publishers.id"))
-
-    publisher: Mapped["Publisher"] = relationship("Publisher", back_populates="publisher_jobs")
-
-    status: Mapped[str] = mapped_column(String)
-
-    output: Mapped[Optional[str]] = mapped_column(Text, init=False)
-
-    arq_job_id: Mapped[str] = mapped_column(String, nullable=True)

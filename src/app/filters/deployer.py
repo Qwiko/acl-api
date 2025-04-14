@@ -1,14 +1,11 @@
 from typing import Optional
 
-from fastapi_filter.base.filter import BaseFilterModel
 from fastapi_filter.contrib.sqlalchemy import Filter
 
-from ..models import Publisher
-from pydantic import ValidationInfo, field_validator
-from collections import defaultdict
+from ..models import Deployer
 
-        
-class PublisherFilter(Filter):
+
+class DeployerFilter(Filter):
     id: Optional[int] = None
     id__in: Optional[list[int]] = None
     id__ilike: Optional[str] = None
@@ -19,11 +16,10 @@ class PublisherFilter(Filter):
     name__like: Optional[str] = None
     name__neq: Optional[str] = None
 
-    
     order_by: list[str] = ["id"]
     q: Optional[str] = None
 
     class Constants(Filter.Constants):
-        model = Publisher
+        model = Deployer
         search_model_fields = ["name"]
         search_field_name = "q"

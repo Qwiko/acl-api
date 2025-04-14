@@ -5,8 +5,8 @@ from ...models import (
     Policy,
     Revision,
     PolicyTerm,
-    Publisher,
-    PublisherJob,
+    Deployer,
+    Deployment,
     Service,
     ServiceEntry,
     Target,
@@ -33,5 +33,5 @@ target_crud = BaseCRUD(Target)
 test_crud = BaseCRUD(Test)
 case_crud = BaseCRUD(TestCase)
 
-publisher_crud = BaseCRUD(Publisher)
-publisher_job_crud = BaseCRUD(PublisherJob)
+deployer_crud = BaseCRUD(Deployer)
+deployment_crud = BaseCRUD(Deployment)

@@ -1,6 +1,6 @@
 import ipaddress
 import json
-from typing import Annotated, Any, List, Optional, Union
+from typing import Annotated, Any, List, Optional, Union, Callable
 
 from arq.jobs import Job as ArqJob
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -12,7 +12,7 @@ from sqlalchemy.dialects.postgresql import CIDR
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from ...core.cruds import dynamic_policy_crud, policy_crud, publisher_crud, publisher_job_crud, revision_crud
+from ...core.cruds import dynamic_policy_crud, policy_crud, deployer_crud, deployment_crud, revision_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
 from ...core.utils import queue
@@ -24,13 +24,13 @@ from ...models import (
     NetworkAddress,
     Policy,
     PolicyTerm,
-    PublisherJob,
+    Deployment,
     Revision,
     RevisionConfig,
 )
 from ...models.policy import PolicyTermDestinationNetworkAssociation, PolicyTermSourceNetworkAssociation
 from ...schemas.dynamic_policy import DynamicPolicyRead
-from ...schemas.job import Job
+
 from ...schemas.policy import PolicyRead, PolicyTermRead
 from ...schemas.revision import (
     DynamicPolicyRevisionCreate,
@@ -42,6 +42,8 @@ from ...schemas.revision import (
 )
 
 router = APIRouter(tags=["revisions"])
+
+func: Callable
 
 
 def is_valid_cidr(cidr: str) -> bool:
@@ -422,8 +424,8 @@ async def erase_revision(
     return {"message": "Revision deleted"}
 
 
-@router.post("/revisions/{id}/publish", response_model=Any, status_code=201)
-async def publish_revision(
+@router.post("/revisions/{id}/deploy", response_model=Any, status_code=201)
+async def deploy_revision(
     id: int,
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
@@ -434,25 +436,31 @@ async def publish_revision(
 
     target_ids = [config.target_id for config in revision.configs]
 
-    for target_id in target_ids:
-        publishers = await publisher_crud.get_all(db, load_relations=True, filter_by={"target_id": target_id})
+    deployment_ids = []
 
-        if not publishers:
+    for target_id in target_ids:
+        deployers = await deployer_crud.get_all(db, load_relations=True, filter_by={"target_id": target_id})
+
+        if not deployers:
             continue
 
-        for publisher in publishers:
-            # Create publisher_job here and pass to arq. So we can save eventual results there.
-            publisher_job = PublisherJob(
-                publisher_id=publisher.id, publisher=publisher, status="pending", arq_job_id=None
+        for deployer in deployers:
+            deployment = Deployment(
+                deployer_id=deployer.id,
+                deployer=deployer,
+                revision=revision,
+                revision_id=revision.id,
+                status="pending",
             )
-            db.add(publisher_job)
+            db.add(deployment)
             await db.commit()
-            await db.refresh(publisher_job)
+            await db.refresh(deployment)
 
-            job = await queue.pool.enqueue_job(
-                "push_ssh", **{"revision_id": id, "publisher_id": publisher.id, "publisher_job_id": publisher_job.id}
+            await queue.pool.enqueue_job(
+                "push_ssh",
+                _job_id=str(deployment.id),
+                **{"revision_id": id, "deployer_id": deployer.id, "deployment_id": deployment.id},
             )
-            publisher_job.arq_job_id = job.job_id
-            await db.commit()
+            deployment_ids.append(deployment.id)
 
-    return {"message": "Publish started"}
+    return {"message": "Publish started", "deployment_ids": deployment_ids}

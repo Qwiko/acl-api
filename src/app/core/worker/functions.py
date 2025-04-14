@@ -6,33 +6,37 @@ from typing import Any, List
 import paramiko
 import uvloop
 from arq.worker import Worker
+from sqlalchemy import select
 
 from ...core.db.database import async_get_db
-from ...models import RevisionConfig
-from ..cruds import revision_crud, publisher_crud, publisher_job_crud
+from ...models import RevisionConfig, DeployerSSHConfig
+from ..cruds import revision_crud, deployer_crud, deployment_crud
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
-async def push_ssh(ctx: Worker, revision_id: int, publisher_id: int, publisher_job_id: int) -> Any:
+async def push_ssh(ctx: Worker, revision_id: int, deployer_id: int, deployment_id: int) -> Any:
     db = ctx["db"]
     revision = await revision_crud.get(db=db, obj_id=revision_id, load_relations=True)
 
-    publisher = await publisher_crud.get(db=db, obj_id=publisher_id, load_relations=True)
-    publisher_job = await publisher_job_crud.get(db=db, obj_id=publisher_job_id, load_relations=False)
+    deployer = await deployer_crud.get(db=db, obj_id=deployer_id, load_relations=True)
+    deployment = await deployment_crud.get(db=db, obj_id=deployment_id, load_relations=False)
 
-    publisher_job.status = "running"
+    ssh_config_res = await db.execute(select(DeployerSSHConfig).where(DeployerSSHConfig.deployer_id == deployer_id))
+    ssh_config = ssh_config_res.scalars().first()
+
+    deployment.status = "running"
     await db.commit()
-    await db.refresh(publisher_job)
+    await db.refresh(deployment)
 
-    target_id = publisher.target_id
+    target_id = deployer.target_id
 
-    remote_host = publisher.ssh_config.host
-    username = publisher.ssh_config.username
-    password = publisher.ssh_config.password
-    port = publisher.ssh_config.port
+    remote_host = ssh_config.host
+    username = ssh_config.username
+    password = ssh_config.password
+    port = ssh_config.port
 
     target_configs_dict: List[RevisionConfig] = [config for config in revision.configs if config.target_id == target_id]
 
@@ -55,10 +59,10 @@ async def push_ssh(ctx: Worker, revision_id: int, publisher_id: int, publisher_j
         ssh.connect(remote_host, username=username, password=password, port=port)
     except paramiko.SSHException as e:
         outputs.append(f"SSH connection error: {e}")
-        publisher_job.status = "failed"
-        publisher_job.output = "\n".join(outputs)
+        deployment.status = "failed"
+        deployment.output = "\n".join(outputs)
         await db.commit()
-        await db.refresh(publisher_job)
+        await db.refresh(deployment)
         return False
 
     outputs.append(f"Connected to {remote_host} as {username}")
@@ -88,11 +92,11 @@ async def push_ssh(ctx: Worker, revision_id: int, publisher_id: int, publisher_j
         if stderr:
             error = stderr.read().decode("utf-8")
             if error:
-                output.append(f"Error: {error}")
-                publisher_job.status = "failed"
-                publisher_job.output = "\n".join(outputs)
+                outputs.append(f"Error: {error}")
+                deployment.status = "failed"
+                deployment.output = "\n".join(outputs)
                 await db.commit()
-                await db.refresh(publisher_job)
+                await db.refresh(deployment)
                 return False
         outputs.append(f"Output: {output}")
         logging.info(f"Output: {output}")
@@ -100,10 +104,10 @@ async def push_ssh(ctx: Worker, revision_id: int, publisher_id: int, publisher_j
     # Close the SSH connection
     ssh.close()
     outputs.append("SSH connection closed")
-    publisher_job.status = "completed"
-    publisher_job.output = "\n".join(outputs)
+    deployment.status = "completed"
+    deployment.output = "\n".join(outputs)
     await db.commit()
-    await db.refresh(publisher_job)
+    await db.refresh(deployment)
     return True
 
 

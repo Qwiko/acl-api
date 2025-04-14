@@ -38,6 +38,7 @@ class TargetRead(TimestampSchema, TargetBase):
     dynamic_policies_ids: Annotated[
         List[PositiveInt], Field(serialization_alias="dynamic_policies", default_factory=list)
     ]
+    deployers_ids: Annotated[List[PositiveInt], Field(serialization_alias="deployers", default_factory=list)]
 
 
 class TargetReadBrief(TimestampSchema, TargetBase):

@@ -9,11 +9,11 @@ from .dynamic_policy import DynamicPolicy
 from .policy import Policy
 
 if TYPE_CHECKING:
+    from .deployer import Deployer
     from .revision import RevisionConfig
-    from .publisher import Publisher
 else:
+    Deployer = "Deployer"
     RevisionConfig = "RevisionConfig"
-    Publisher = "Publisher"
 
 
 class TargetDynamicPolicyAssociation(Base):
@@ -55,12 +55,12 @@ class Target(Base, TimestampsMixin):
         init=False,
     )
 
-    publishers: Mapped[List["Publisher"]] = relationship(
-        foreign_keys="Publisher.target_id",
+    deployers: Mapped[List["Deployer"]] = relationship(
+        foreign_keys="Deployer.target_id",
         back_populates="target",
         cascade="all, delete",
         init=False,
-    )    
+    )
 
     @property
     def dynamic_policies_ids(self) -> List[int]:
@@ -69,7 +69,7 @@ class Target(Base, TimestampsMixin):
     @property
     def policies_ids(self) -> List[int]:
         return [policy.id for policy in self.policies]
-    
+
     @property
-    def publishers_ids(self) -> List[int]:
-        return [publisher.id for publisher in self.publishers]
+    def deployers_ids(self) -> List[int]:
+        return [deployer.id for deployer in self.deployers]
