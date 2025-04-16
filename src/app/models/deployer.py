@@ -27,33 +27,76 @@ class Deployer(Base, SerializeMixin, TimestampsMixin):
     __tablename__ = "deployers"
 
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
+    name: Mapped[str] = mapped_column(String, unique=True)
+    mode: Mapped[str] = mapped_column(String)
 
     target_id: Mapped[int] = mapped_column(ForeignKey("targets.id"), init=False)
-
     target: Mapped["Target"] = relationship(
         "Target", foreign_keys=[target_id], back_populates="deployers", single_parent=True
     )
 
-    name: Mapped[str] = mapped_column(String, unique=True)
-
-    target = relationship("Target", lazy="selectin", back_populates="deployers")
-
-    ssh_config = relationship("DeployerSSHConfig", lazy="selectin", uselist=False, back_populates="deployer")
+    config: Mapped["DeployerConfig"] = relationship(
+        "DeployerConfig", back_populates="deployer", lazy="selectin", uselist=False, cascade="all, delete-orphan"
+    )
 
     deployments = relationship("Deployment", back_populates="deployer")
 
 
-class DeployerSSHConfig(Base, SerializeMixin, TimestampsMixin):
-    __tablename__ = "deployer_ssh_configs"
+class DeployerConfig(Base):
+    __tablename__ = "deployer_configs"
 
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
+    type: Mapped[str] = mapped_column(String, nullable=False)
+
+    deployer_id: Mapped[int] = mapped_column(ForeignKey("deployers.id"), unique=True, init=False)
+    deployer = relationship("Deployer", foreign_keys=[deployer_id], back_populates="config")
+
+    __mapper_args__ = {
+        "polymorphic_identity": "base",
+        "polymorphic_on": "type",
+    }
+
+
+class DeployerProxmoxNftConfig(DeployerConfig):
+    __tablename__ = "deployer_proxmox_nft_configs"
+
+    id: Mapped[int] = mapped_column(ForeignKey("deployer_configs.id"), primary_key=True, init=False)
 
     host: Mapped[IPvAnyAddress | DNSHostname] = mapped_column(String)
     username: Mapped[str] = mapped_column(String)
     password: Mapped[Optional[str]] = mapped_column(String)
     ssh_key: Mapped[Optional[Text]] = mapped_column(String)
 
-    deployer_id: Mapped[int] = mapped_column(ForeignKey("deployers.id"))
-    deployer = relationship("Deployer", foreign_keys=[deployer_id], back_populates="ssh_config")
+    port: Mapped[int] = mapped_column(Integer, default=22)
 
-    port: Mapped[int] = mapped_column(String, default=22)
+    __mapper_args__ = {"polymorphic_identity": "proxmox_nft"}
+
+
+class DeployerNetmikoConfig(DeployerConfig):
+    __tablename__ = "deployer_netmiko_configs"
+
+    id: Mapped[int] = mapped_column(ForeignKey("deployer_configs.id"), primary_key=True, init=False)
+
+    host: Mapped[IPvAnyAddress | DNSHostname] = mapped_column(String)
+    username: Mapped[str] = mapped_column(String)
+    password: Mapped[Optional[str]] = mapped_column(String)
+    enable: Mapped[Optional[str]] = mapped_column(String)  # Enable password
+    ssh_key: Mapped[Optional[Text]] = mapped_column(String)
+
+    port: Mapped[int] = mapped_column(Integer, default=22)
+
+    __mapper_args__ = {"polymorphic_identity": "netmiko"}
+
+
+class DeployerGitConfig(DeployerConfig):
+    __tablename__ = "deployer_git_configs"
+
+    id: Mapped[int] = mapped_column(ForeignKey("deployer_configs.id"), primary_key=True, init=False)
+
+    repo_url: Mapped[str] = mapped_column(String, nullable=False)
+    branch: Mapped[str] = mapped_column(String, nullable=False)
+    folder_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    ssh_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    auth_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    __mapper_args__ = {"polymorphic_identity": "git"}

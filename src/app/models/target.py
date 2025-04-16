@@ -57,6 +57,7 @@ class Target(Base, TimestampsMixin):
 
     deployers: Mapped[List["Deployer"]] = relationship(
         foreign_keys="Deployer.target_id",
+        lazy="selectin",
         back_populates="target",
         cascade="all, delete",
         init=False,

@@ -1,4 +1,4 @@
-from .deployer import Deployer, DeployerSSHConfig
+from .deployer import Deployer, DeployerGitConfig, DeployerNetmikoConfig, DeployerProxmoxNftConfig
 from .deployment import Deployment
 from .dynamic_policy import DynamicPolicy
 from .network import Network, NetworkAddress

@@ -10,7 +10,7 @@ from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlalchemy import and_, cast, exists, func, not_, or_, select
 from sqlalchemy.dialects.postgresql import CIDR
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import aliased, selectinload
 
 from ...core.cruds import dynamic_policy_crud, policy_crud, deployer_crud, deployment_crud, revision_crud
 from ...core.db.database import async_get_db
@@ -331,7 +331,7 @@ async def write_revision(
         )
 
         for target in dynamic_policy.targets:
-            acl_filter, filter_name = await generate_acl_from_policy(
+            acl_filter, filter_name, filename = await generate_acl_from_policy(
                 db, dynamic_policy, terms, target, default_action=dynamic_policy.default_action
             )
             revision.configs.append(
@@ -339,6 +339,7 @@ async def write_revision(
                     revision_id=revision.id,
                     target=target,
                     target_id=target.id,
+                    filename=filename,
                     config=acl_filter,
                     filter_name=filter_name,
                     revision=revision,
@@ -354,7 +355,7 @@ async def write_revision(
 
         policy_json_data = policy_pydantic_model.model_dump_json()
 
-        expanded_terms = await get_expanded_terms(db, terms)
+        expanded_terms = await get_expanded_terms(db, policy.terms)
 
         terms_pydantic_model = [
             PolicyTermRead.model_validate(expanded_term, from_attributes=True) for expanded_term in expanded_terms
@@ -374,13 +375,14 @@ async def write_revision(
         )
 
         for target in policy.targets:
-            acl_filter, filter_name = await generate_acl_from_policy(db, policy, expanded_terms, target)
+            acl_filter, filter_name, filename = await generate_acl_from_policy(db, policy, expanded_terms, target)
 
             revision.configs.append(
                 RevisionConfig(
                     revision_id=revision.id,
                     target=target,
                     target_id=target.id,
+                    filename=filename,
                     config=acl_filter,
                     filter_name=filter_name,
                     revision=revision,
@@ -445,6 +447,7 @@ async def deploy_revision(
             continue
 
         for deployer in deployers:
+            # Create a new deployment
             deployment = Deployment(
                 deployer_id=deployer.id,
                 deployer=deployer,
@@ -456,11 +459,20 @@ async def deploy_revision(
             await db.commit()
             await db.refresh(deployment)
 
+            function_map = {
+                "git": "deploy_git",
+                "netmiko": "deploy_netmiko",
+                "proxmox_nft": "deploy_proxmox_nft",
+            }
+
             await queue.pool.enqueue_job(
-                "push_ssh",
+                function_map.get(deployer.mode),
                 _job_id=str(deployment.id),
                 **{"revision_id": id, "deployer_id": deployer.id, "deployment_id": deployment.id},
             )
             deployment_ids.append(deployment.id)
+
+    if not deployment_ids:
+        raise HTTPException(status_code=404, detail="No associated deployers found for this revision")
 
     return {"message": "Publish started", "deployment_ids": deployment_ids}

@@ -68,4 +68,6 @@ class RevisionConfig(Base):
 
     filter_name: Mapped[Optional[str]] = mapped_column(String)
 
+    filename: Mapped[Optional[str]] = mapped_column(String)
+
     config: Mapped[str] = mapped_column(Text, nullable=False)

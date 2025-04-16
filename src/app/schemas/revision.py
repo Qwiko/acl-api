@@ -112,9 +112,3 @@ class PolicyRevisionConfigRead(PolicyRevisionConfigReadBase):
     target_id: int
     filter_name: str
     config: Text
-
-
-class FilterRead(BaseModel):
-    generator: str
-    filter: str
-    filter_name: str

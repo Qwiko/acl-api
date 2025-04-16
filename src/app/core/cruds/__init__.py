@@ -18,6 +18,7 @@ from ..utils.crud import BaseCRUD
 policy_crud = BaseCRUD(Policy)
 
 term_crud = BaseCRUD(PolicyTerm)
+
 revision_crud = BaseCRUD(Revision)
 
 dynamic_policy_crud = BaseCRUD(DynamicPolicy)

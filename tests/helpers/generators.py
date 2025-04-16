@@ -41,14 +41,14 @@ def create_target(db: Session) -> models.Target:
     return _target
 
 
-def create_publisher(db: Session, target: models.Target) -> models.Publisher:
-    _publisher = models.Publisher(
+def create_deployer(db: Session, target: models.Target) -> models.Deployer:
+    _deployer = models.Deployer(
         name=fake.name(),
         target=target,
     )
 
-    db.add(_publisher)
+    db.add(_deployer)
     db.commit()
-    db.refresh(_publisher)
+    db.refresh(_deployer)
 
-    return _publisher
+    return _deployer

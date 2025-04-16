@@ -8,6 +8,7 @@ from fastapi_pagination import paginate as dict_paginate
 from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import and_
 
 from ...core.cruds import deployer_crud, target_crud
@@ -15,7 +16,9 @@ from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
 from ...filters.deployer import DeployerFilter
 from ...models import Deployer
-from ...schemas.deployer import DeployerCreate, DeployerRead, DeployerReadBrief, DeployerUpdate
+from ...models.deployer import DeployerConfig, DeployerGitConfig, DeployerProxmoxNftConfig, DeployerNetmikoConfig
+
+from ...schemas.deployer import DeployerCreate, DeployerRead, DeployerReadBrief, DeployerUpdate, DeployerModeEnum
 
 router = APIRouter(tags=["deployers"])
 
@@ -50,18 +53,51 @@ async def write_deployer(
 
     del values.target
 
-    deployer = await deployer_crud.create(
-        db,
-        values,
-        {"target": target},
+    config = values.config.model_dump()
+
+    if values.mode == DeployerModeEnum.PROXMOX_NFT:
+        deployer_child_config = DeployerProxmoxNftConfig(type=values.mode, **config)
+    elif values.mode == DeployerModeEnum.NETMIKO:
+        deployer_child_config = DeployerNetmikoConfig(type=values.mode, **config)
+    elif values.mode == "git":
+        deployer_child_config = DeployerGitConfig(type=values.mode, **config)
+    else:
+        raise RequestValidationError([{"loc": ["body", "mode"], "msg": "Invalid mode"}])
+
+    del values.config
+
+    deployer = Deployer(**values.model_dump(), target=target, config=deployer_child_config)
+
+    db.add(deployer)
+    await db.commit()
+    await db.refresh(deployer)
+
+    result = await db.execute(
+        select(Deployer)
+        .options(
+            selectinload(Deployer.config).selectin_polymorphic(
+                [DeployerNetmikoConfig, DeployerProxmoxNftConfig, DeployerGitConfig]
+            )
+        )
+        .where(Deployer.id == deployer.id)  # Use the id of the newly created deployer
     )
+    deployer = result.scalars().one_or_none()
 
     return deployer
 
 
 @router.get("/deployers/{id}", response_model=DeployerRead)
 async def read_deployer(id: int, db: Annotated[AsyncSession, Depends(async_get_db)]) -> Any:
-    deployer = await deployer_crud.get(db, id, load_relations=True)
+    result = await db.execute(
+        select(Deployer)
+        .options(
+            selectinload(Deployer.config).selectin_polymorphic(
+                [DeployerProxmoxNftConfig, DeployerNetmikoConfig, DeployerGitConfig]
+            )
+        )
+        .where(Deployer.id == id)
+    )
+    deployer = result.scalars().one_or_none()
 
     if deployer is None:
         raise NotFoundException("Deployer not found")
@@ -102,6 +138,17 @@ async def put_deployers(
         values,
         {"target": target},
     )
+
+    result = await db.execute(
+        select(Deployer)
+        .options(
+            selectinload(Deployer.config).selectin_polymorphic(
+                [DeployerProxmoxNftConfig, DeployerNetmikoConfig, DeployerGitConfig]
+            )
+        )
+        .where(Deployer.id == deployer.id)  # Use the id of the newly created deployer
+    )
+    deployer = result.scalars().one_or_none()
 
     return deployer
 

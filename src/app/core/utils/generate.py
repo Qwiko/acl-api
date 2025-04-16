@@ -302,6 +302,7 @@ async def get_policy_and_definitions_from_policy(
         else:
             target_dict = {target.generator: f"{filter_name} {inet_mode}"}
 
+    # Not sure if this is needed. Fetched all expanded terms before this function is called.
     expanded_terms = await get_expanded_terms(db, terms)
 
     protocol_map = await get_protocol_map(db, expanded_terms)
@@ -362,17 +363,18 @@ async def generate_acl_from_policy(
             definitions,
         )
     except ACLGeneratorError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
-    config = configs[configs.keys()[0]]
+    filename = configs.keys()[0]
+    config = configs[filename]
+
     if target.generator == "nftables":
         config = config.replace("table inet filtering_policies", f"table bridge {policy.valid_name}")
         config = config.replace(
-            "type filter hook input priority 0; policy drop;", "type filter hook postrouting priority 0;"
+            "type filter hook input priority 0; policy drop;", "type filter hook postrouting priority 0; policy accept;"
         )
         # Temphack
-        config = config.replace(
-            '"drop', '" drop'
-        )
+        config = config.replace('"drop', '" drop')
 
-    return config, policy.valid_name
+    # Returning config, filter_name and filename
+    return config, policy.valid_name, filename
