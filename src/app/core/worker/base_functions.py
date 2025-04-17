@@ -12,6 +12,7 @@ from ...models import Deployment
 from ..db.database import local_session
 
 additional_loggers = [
+    "base_functions",
     "deploy_git",
     "deploy_proxmox_nft",
     "deploy_netmiko",
@@ -22,6 +23,7 @@ additional_loggers = [
     "asyncio",
 ]
 
+logger = logging.getLogger("base_functions")
 
 async def job_startup(ctx: Worker) -> None:
     """Function to be called before job execution."""
@@ -31,7 +33,10 @@ async def job_startup(ctx: Worker) -> None:
     # Set up logging
     log_stream = StringIO()
     log_handler = logging.StreamHandler(log_stream)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     log_handler.setLevel(logging.INFO)
+    log_handler.setFormatter(formatter)
+    
 
     for logger_name in additional_loggers:
         logger_instance = logging.getLogger(logger_name)
@@ -51,8 +56,11 @@ async def job_startup(ctx: Worker) -> None:
         raise ValueError(f"Deployment {deployment_id} not found")
 
     # Set the deployment status to "running"
+    logger.info("Setting job status: running")
     deployment.status = "running"
     await db.commit()
+    
+    logger.info("Starting function: %s", job_def.function)
 
     ctx["deployment"] = deployment
     ctx["log_stream"] = log_stream
@@ -65,7 +73,14 @@ async def job_shutdown(ctx: Worker) -> None:
     job_def: JobDef = await job.info()
 
     # Save the status to the database
-    ctx["deployment"].status = "completed" if job_def.success else "failed"
+    if job_def.success:
+        logger.info("Job completed, setting job status: completed")
+        ctx["deployment"].status = "completed"
+    else:
+        logger.error("Job failed, setting job status: failed")
+        ctx["deployment"].status = "failed"
+    
+
     # Save the log stream to the database
     ctx["deployment"].output = ctx["log_stream"].getvalue()
     await ctx["db"].commit()
