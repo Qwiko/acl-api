@@ -17,7 +17,6 @@ asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 logger = logging.getLogger("deploy_git")
 
-
 async def deploy_git(ctx: Worker, revision_id: int, deployer_id: int, *args, **kwargs) -> Any:
     db = ctx["db"]
 
@@ -64,11 +63,11 @@ async def deploy_git(ctx: Worker, revision_id: int, deployer_id: int, *args, **k
 
             # Step 4: Clone the repo
             logger.info("Cloning repository %s into %s", repo_url, base_folder)
-            repo = Repo.clone_from(repo_url, base_folder, env={"GIT_SSH_COMMAND": ssh_cmd}, branch=branch)
+            repo = Repo.clone_from(repo_url, base_folder, env={"GIT_SSH_COMMAND": ssh_cmd}, branch=branch, depth=2)
 
             # Update the acl-file from the revision config
             # Assuming the acl-file is in the root of the repository
-            logger.info("Updating acl-file %s with new content", revision_config.filename)
+            logger.info("Updating acl-file %s", revision_config.filename)
             if folder_path:
                 # If a folder path is provided, create the folder structure
                 acl_file_path = f"{base_folder}/{folder_path}/{revision_config.filename}"
@@ -82,8 +81,9 @@ async def deploy_git(ctx: Worker, revision_id: int, deployer_id: int, *args, **k
             with open(acl_file_path, "w", encoding="utf-8") as acl_file:
                 acl_file.write(revision_config.config)
 
-            # Check git status for any changes
-            if not repo.git.diff("HEAD~1..HEAD", name_only=True):
+            logger.info("Checking for changes in the repo, if acl-file was updated/created.")
+            # Check for changes in repo
+            if not (repo.git.diff(None) or repo.git.diff("HEAD") or repo.untracked_files):
                 logger.info("No changes made, skipping")
                 return True
 
@@ -91,7 +91,7 @@ async def deploy_git(ctx: Worker, revision_id: int, deployer_id: int, *args, **k
             # Commit the changes
             repo.index.add([acl_file_path])
             repo.index.commit(
-                f"{revision_config.filename} updated with new content from revision: {revision_config.revision_id}"
+                f"{revision_config.filename} updated, revision_id: {revision_config.revision_id}"
             )
             # Push the changes back to the repository
             logger.info("Pushing changes to the repository")
