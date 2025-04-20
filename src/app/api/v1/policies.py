@@ -1,6 +1,7 @@
 from typing import Annotated, Any, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
@@ -47,7 +48,11 @@ async def read_policies(
 
 @router.post("/policies", response_model=PolicyCreated, status_code=201)
 async def write_policy(values: PolicyCreate, db: Annotated[AsyncSession, Depends(async_get_db)]) -> Any:
-    # extra_data={"targets":[], "terms": []}
+    # Check if the policy name already exists
+    found_policy = await policy_crud.get_all(db, filter_by={"name": values.name})
+    if found_policy:
+        raise RequestValidationError([{"loc": ["body", "name"], "msg": "A policy with this name already exists"}])
+
     policy = await policy_crud.create(db, values, {"targets": []})
     return policy
 
