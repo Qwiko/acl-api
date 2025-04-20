@@ -5,6 +5,7 @@ from typing import Any
 import paramiko
 import uvloop
 from arq.worker import Worker
+from paramiko.ssh_exception import NoValidConnectionsError
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -42,43 +43,47 @@ async def deploy_proxmox_nft(ctx: Worker, revision_id: int, deployer_id: int, *a
 
     if not revision_config:
         logger.error("No revision config found for the given revision and target.")
-        return False
+        raise RuntimeError("No revision config found for the given revision and target.")
 
-    # Create an SSH client instance
-    ssh = paramiko.SSHClient()
+    try:
+        # Create an SSH client instance
+        ssh = paramiko.SSHClient()
 
-    # Automatically add the server's host key
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        # Automatically add the server's host key
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    # Connect to the remote host
-    ssh.connect(remote_host, username=username, password=password, port=port)
+        # Connect to the remote host
+        ssh.connect(remote_host, username=username, password=password, port=port)
 
-    commands = [
-        "mkdir -p /opt/nft",
-        # "chmod +x /opt/nft/add.sh",
-        f'echo """{revision_config.config}""" > /opt/nft/{revision_config.filename}',
-        # f"/opt/nft/add.sh /opt/nft/{revision_config.filter_name}.nft",
-        f"nft -c -f /opt/nft/{revision_config.filename}",
-        f"nft add table bridge {revision_config.filter_name}",
-        f"nft flush table bridge {revision_config.filter_name}",
-        # f"nft -f /opt/nft/{revision_config.filename}",
-    ]
+        commands = [
+            "mkdir -p /opt/nft",
+            # "chmod +x /opt/nft/add.sh",
+            f'echo """{revision_config.config}""" > /opt/nft/{revision_config.filename}',
+            # f"/opt/nft/add.sh /opt/nft/{revision_config.filter_name}.nft",
+            f"nft -c -f /opt/nft/{revision_config.filename}",
+            f"nft add table bridge {revision_config.filter_name}",
+            f"nft flush table bridge {revision_config.filter_name}",
+            # f"nft -f /opt/nft/{revision_config.filename}",
+        ]
 
-    for command in commands:
-        logger.info("Executing command: %s", command)
+        for command in commands:
+            logger.info("Executing command: %s", command)
 
-        # Execute a command on the remote host
-        _, stdout, stderr = ssh.exec_command(command)
+            # Execute a command on the remote host
+            _, stdout, stderr = ssh.exec_command(command)
 
-        # Read the output
-        output = stdout.read().decode("utf-8")
+            # Read the output
+            output = stdout.read().decode("utf-8")
 
-        if stderr:
-            error = stderr.read().decode("utf-8")
-            if error:
-                raise RuntimeError(f"Error executing command: {error}")
+            if stderr:
+                error = stderr.read().decode("utf-8")
+                if error:
+                    raise RuntimeError(f"Error executing command: {error}")
 
-        logger.info("Output: %s", output)
+            logger.info("Output: %s", output)
 
-    # Close the SSH connection
-    ssh.close()
+        # Close the SSH connection
+        ssh.close()
+    except NoValidConnectionsError as e:
+        logger.error(e)
+        raise

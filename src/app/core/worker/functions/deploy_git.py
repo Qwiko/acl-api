@@ -17,6 +17,7 @@ asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 logger = logging.getLogger("deploy_git")
 
+
 async def deploy_git(ctx: Worker, revision_id: int, deployer_id: int, *args, **kwargs) -> Any:
     db = ctx["db"]
 
@@ -45,7 +46,8 @@ async def deploy_git(ctx: Worker, revision_id: int, deployer_id: int, *args, **k
 
     if not revision_config:
         logger.error("No revision config found for the given revision and target.")
-        return False
+        # Raise Error
+        raise RuntimeError("No revision config found for the given revision and target.")
 
     # Step 1: Write the SSH key to a secure temporary file
     with tempfile.NamedTemporaryFile(delete=False, mode="w") as key_file:
@@ -85,14 +87,15 @@ async def deploy_git(ctx: Worker, revision_id: int, deployer_id: int, *args, **k
             # Check for changes in repo
             if not (repo.git.diff(None) or repo.git.diff("HEAD") or repo.untracked_files):
                 logger.info("No changes made, skipping")
-                return True
+                # Job completed
+                return
 
             logger.info("Committing changes to %s", acl_file_path)
+
             # Commit the changes
             repo.index.add([acl_file_path])
-            repo.index.commit(
-                f"{revision_config.filename} updated, revision_id: {revision_config.revision_id}"
-            )
+            repo.index.commit(f"{revision_config.filename} updated, revision_id: {revision_config.revision_id}")
+
             # Push the changes back to the repository
             logger.info("Pushing changes to the repository")
             repo.git.push()
