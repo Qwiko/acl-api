@@ -32,6 +32,8 @@ class DeployerRead(TimestampSchema, DeployerBase):
 
 class DeployerReadBrief(TimestampSchema, DeployerBase):
     id: int
+    target_id: Annotated[PositiveInt, Field(serialization_alias="target")]
+    mode: DeployerModeEnum
 
 
 class DeployerCreated(TimestampSchema, DeployerBase):
