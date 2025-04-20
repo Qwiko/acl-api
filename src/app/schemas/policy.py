@@ -1,12 +1,28 @@
 from datetime import datetime
+from enum import Enum
 from typing import Annotated, Any, List, Optional, Text, Union
 
 from pydantic import BaseModel, Field, PositiveInt, ValidationError, field_validator, model_validator
 from pydantic_core import InitErrorDetails, PydanticCustomError
 
 from ..core.schemas import TimestampSchema
-
 from .custom_validators import EnsureListUnique
+
+
+class PolicyActionEnum(str, Enum):
+    ACCEPT = "accept"
+    DENY = "deny"
+    NEXT = "next"
+    REJECT = "reject"
+    REJECT_WITH_TCP_RST = "reject-with-tcp-rst"
+
+
+class PolicyOptionEnum(str, Enum):
+    ESTABLISHED = "established"
+    IS_FRAGMENT = "is-fragment"
+    TCP_ESTABLISHED = "tcp-established"
+    TCP_INITIAL = "tcp-initial"
+
 
 class PolicyBase(BaseModel):
     name: str  # Annotated[str, Field(min_length=2, max_length=30, examples=["This is my Policy name"])]
@@ -114,28 +130,14 @@ class PolicyTermSharedBase(BaseModel):
 
 
 class PolicyTermBase(PolicyTermSharedBase):
-    option: Optional[str] = None
+    option: Optional[PolicyOptionEnum] = None
 
     logging: Annotated[bool, Field(default=False)]
 
-    action: str
+    action: PolicyActionEnum
 
     negate_source_networks: Annotated[bool, Field(default=False)]
     negate_destination_networks: Annotated[bool, Field(default=False)]
-
-    @field_validator("action")
-    @classmethod
-    def validate_action(cls, v: str) -> str:
-        if v not in ["accept", "deny", "next", "reject", "reject-with-tcp-rst"]:
-            raise ValueError("not a valid action.")
-        return v
-
-    @field_validator("option")
-    @classmethod
-    def validate_option(cls, v: str) -> str:
-        if v not in [None, "established", "is-fragment", "tcp-established", "tcp-initial"]:
-            raise ValueError("not a valid option.")
-        return v
 
 
 class PolicyTermNestedBase(PolicyTermSharedBase):
