@@ -205,3 +205,53 @@ def test_post_service_entry_icmp(db: Session, client: TestClient) -> None:
         },
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    # Test creating an entry with invalid port
+    response = client.post(
+        f"/api/v1/services/{service.id}/entries",
+        json={
+            "protocol": "tcp",
+            "port": "-1",
+        },
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    # Test creating an entry with invalid port
+    response = client.post(
+        f"/api/v1/services/{service.id}/entries",
+        json={
+            "protocol": "tcp",
+            "port": "65999",
+        },
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    # Test creating an entry with junk data
+    response = client.post(
+        f"/api/v1/services/{service.id}/entries",
+        json={
+            "protocol": "tcp",
+            "port": "asl/!dkja - 12ösldk jaösjkdö",
+        },
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    # Test creating an entry with wrong port range
+    response = client.post(
+        f"/api/v1/services/{service.id}/entries",
+        json={
+            "protocol": "tcp",
+            "port": "0-99999",
+        },
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    # Test creating an entry with wrong and reversed port range
+    response = client.post(
+        f"/api/v1/services/{service.id}/entries",
+        json={
+            "protocol": "tcp",
+            "port": "99999-10",
+        },
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
