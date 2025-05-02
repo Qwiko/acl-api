@@ -1,16 +1,16 @@
 from ipaddress import ip_network
 from typing import Any, List, Tuple
 
+from aerleon.aclgen import ACLGeneratorError
 from aerleon.api import Generate
 from aerleon.lib import naming
-from aerleon.aclgen import ACLGeneratorError
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from fastapi import HTTPException
-
 from ...models import Network, Policy, PolicyTerm, Service, Target
+from ...schemas.policy import PolicyOptionEnum
 
 # from ...crud.crud_networks import crud_networks
 # from ...crud.crud_services import crud_services, crud_service_entries
@@ -264,6 +264,12 @@ def get_aerleon_terms(terms: List[PolicyTerm], protocol_map) -> List[dict]:
                     # Add ports
                     protocols.extend(protocol_map.get(destination_service.hashed_name))
 
+        # We cannot have protocol IP with established so we pass on some defaults
+        if not protocols and term.option == PolicyOptionEnum.ESTABLISHED:
+            protocols = ["tcp", "udp"]
+        elif not protocols and term.option == PolicyOptionEnum.TCP_ESTABLISHED:
+            protocols = ["tcp"]
+        
         if not protocols:
             # Defaults to ip protocol
             terms_arr.append(term_dict)
@@ -294,7 +300,7 @@ async def get_policy_and_definitions_from_policy(
         inet_mode = target.inet_mode if target.inet_mode else ""
 
         # Cisco default mode is extended.
-        if inet_mode == "inet" and target.generator in ["cisco"]:
+        if inet_mode == "inet" and target.generator in ["cisco", "cisconx"]:
             inet_mode = "extended"
 
         if target.generator == "nftables":
