@@ -1,11 +1,12 @@
 import asyncio
 import logging
+import os
 from typing import Any
 
 import uvloop
 from arq.worker import Worker
 from netmiko import ConnectHandler, SSHDetect
-from netmiko.exceptions import NetmikoTimeoutException, NetmikoAuthenticationException
+from netmiko.exceptions import NetmikoAuthenticationException, NetmikoTimeoutException
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -35,9 +36,18 @@ async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args,
     port = deployer.config.port
 
     username = deployer.config.username
-    password = deployer.config.password
-    enable = deployer.config.enable
-    ssh_key = deployer.config.ssh_key
+
+    # Get from environment
+    password = os.environ.get(deployer.config.password_envvar)
+    enable = os.environ.get(deployer.config.enable_envvar)
+    ssh_key = os.environ.get(deployer.config.ssh_key_envvar)
+
+    if not password and not ssh_key:
+        logger.error("No password or SSH key found in environment variables.")
+        raise RuntimeError("No password or SSH key found in environment variables.")
+
+    # Get api_url from environment
+    api_url = os.environ.get("API_URL")
 
     revision_config_res = await db.execute(
         select(RevisionConfig)
@@ -85,6 +95,8 @@ async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args,
 
         net_connect = ConnectHandler(**network_device)
 
+        # If we have a enable password, we need to enter enable mode
+        # Otherwise we assume we are already in enable mode
         if enable:
             net_connect.enable()
 
@@ -93,10 +105,19 @@ async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args,
             net_connect.disconnect()
             raise RuntimeError("Not in enable_mode, disconnecting.")
 
-        acl_lines = [line.strip() for line in revision_config.config.strip().splitlines() if line.strip()]
+        # For certain devices we can use copy to running-config command with http instead of sending the acl one line at a time
+        # Only if we have a api_url
+        if api_url and generator in ["cisco", "cisconx"]:
+            output = net_connect.send_command(
+                f"copy {api_url}/revision/{revision_id}/raw_config?target_id={target_id} running-config"
+            )
+            logger.info(output)
+        else:
+            # For other devices, we assume the config is in a format that can be sent directly
+            acl_lines = [line.strip() for line in revision_config.config.strip().splitlines() if line.strip()]
 
-        output = net_connect.send_config_set(acl_lines, exit_config_mode=True)
-        logger.info(output)
+            output = net_connect.send_config_set(acl_lines, exit_config_mode=True)
+            logger.info(output)
 
         output = net_connect.save_config()
         logger.info(output)

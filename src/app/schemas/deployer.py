@@ -77,8 +77,8 @@ class DeployerProxmoxNftConfigCreate(BaseModel):
 
     username: str
     port: int
-    password: Optional[str] = None
-    ssh_key: Optional[str] = None
+    password_envvar: Optional[str] = None
+    ssh_key_envvar: Optional[str] = None
 
     @field_validator("host", mode="after")
     @classmethod
@@ -101,9 +101,9 @@ class DeployerNetmikoConfigCreate(BaseModel):
 
     username: str
     port: int
-    password: Optional[str] = None
-    enable: Optional[str] = None  # Enable password
-    ssh_key: Optional[str] = None
+    password_envvar: Optional[str] = None
+    enable_envvar: Optional[str] = None  # Enable password
+    ssh_key_envvar: Optional[str] = None
 
     @field_validator("host", mode="after")
     @classmethod
@@ -125,8 +125,8 @@ class DeployerGitConfigCreate(BaseModel):
     repo_url: str
     branch: str
     folder_path: Optional[str] = None
-    ssh_key: Optional[str] = None
-    auth_token: Optional[str] = None
+    ssh_key_envvar: Optional[str] = None
+    auth_token_envvar: Optional[str] = None
 
     @field_validator("folder_path")
     @classmethod

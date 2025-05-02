@@ -1,10 +1,8 @@
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey, String, Text, Integer
-from sqlalchemy.dialects.postgresql import CIDR
 from pydantic.networks import IPvAnyAddress
+from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.sql.elements import TextClause
 from sqlalchemy_mixins.serialize import SerializeMixin
 from sqlalchemy_mixins.timestamp import TimestampsMixin
 
@@ -63,9 +61,9 @@ class DeployerProxmoxNftConfig(DeployerConfig):
     id: Mapped[int] = mapped_column(ForeignKey("deployer_configs.id"), primary_key=True, init=False)
 
     host: Mapped[IPvAnyAddress | DNSHostname] = mapped_column(String)
-    username: Mapped[str] = mapped_column(String)
-    password: Mapped[Optional[str]] = mapped_column(String)
-    ssh_key: Mapped[Optional[Text]] = mapped_column(String)
+    username_envvar: Mapped[str] = mapped_column(String)
+    password_envvar: Mapped[Optional[str]] = mapped_column(String)
+    ssh_key_envvar: Mapped[Optional[str]] = mapped_column(String)
 
     port: Mapped[int] = mapped_column(Integer, default=22)
 
@@ -78,10 +76,10 @@ class DeployerNetmikoConfig(DeployerConfig):
     id: Mapped[int] = mapped_column(ForeignKey("deployer_configs.id"), primary_key=True, init=False)
 
     host: Mapped[IPvAnyAddress | DNSHostname] = mapped_column(String)
-    username: Mapped[str] = mapped_column(String)
-    password: Mapped[Optional[str]] = mapped_column(String)
-    enable: Mapped[Optional[str]] = mapped_column(String)  # Enable password
-    ssh_key: Mapped[Optional[Text]] = mapped_column(String)
+    username_envvar: Mapped[str] = mapped_column(String)
+    password_envvar: Mapped[Optional[str]] = mapped_column(String)
+    enable_envvar: Mapped[Optional[str]] = mapped_column(String)  # Enable password
+    ssh_key_envvar: Mapped[Optional[str]] = mapped_column(String)
 
     port: Mapped[int] = mapped_column(Integer, default=22)
 
@@ -96,7 +94,7 @@ class DeployerGitConfig(DeployerConfig):
     repo_url: Mapped[str] = mapped_column(String, nullable=False)
     branch: Mapped[str] = mapped_column(String, nullable=False)
     folder_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    ssh_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    auth_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ssh_key_envvar: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    auth_token_envvar: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     __mapper_args__ = {"polymorphic_identity": "git"}

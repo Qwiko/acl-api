@@ -32,9 +32,15 @@ async def deploy_git(ctx: Worker, revision_id: int, deployer_id: int, *args, **k
 
     repo_url = deployer.config.repo_url
     branch = deployer.config.branch
-    ssh_key = deployer.config.ssh_key
     folder_path = deployer.config.folder_path
-    auth_token = deployer.config.auth_token
+
+    # Get from environment
+    ssh_key = os.environ.get(deployer.config.ssh_key_envvar)
+    auth_token = os.environ.get(deployer.config.auth_token_envvar)
+
+    if not ssh_key and not auth_token:
+        logger.error("No SSH key or auth token found in environment variables.")
+        raise RuntimeError("No SSH key or auth token found in environment variables.")
 
     revision_config_res = await db.execute(
         select(RevisionConfig)

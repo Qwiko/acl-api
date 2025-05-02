@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from typing import Any
 
 import paramiko
@@ -30,8 +31,15 @@ async def deploy_proxmox_nft(ctx: Worker, revision_id: int, deployer_id: int, *a
 
     remote_host = deployer.config.host
     username = deployer.config.username
-    password = deployer.config.password
     port = deployer.config.port
+
+    # Get from environment
+    password = os.environ.get(deployer.config.password_envvar)
+    ssh_key = os.environ.get(deployer.config.ssh_key_envvar)
+
+    if not password and not ssh_key:
+        logger.error("No password or SSH key found in environment variables.")
+        raise RuntimeError("No password or SSH key found in environment variables.")
 
     revision_config_res = await db.execute(
         select(RevisionConfig)
