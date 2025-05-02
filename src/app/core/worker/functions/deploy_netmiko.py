@@ -16,7 +16,6 @@ asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 logger = logging.getLogger("deploy_netmiko")
 
-
 async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args, **kwargs) -> Any:
     db = ctx["db"]
 
@@ -38,16 +37,17 @@ async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args,
     username = deployer.config.username
 
     # Get from environment
-    password = os.environ.get(deployer.config.password_envvar)
-    enable = os.environ.get(deployer.config.enable_envvar)
-    ssh_key = os.environ.get(deployer.config.ssh_key_envvar)
+
+    password = os.getenv(str(deployer.config.password_envvar))
+    enable = os.getenv(str(deployer.config.enable_envvar))
+    ssh_key = os.getenv(str(deployer.config.ssh_key_envvar))
 
     if not password and not ssh_key:
         logger.error("No password or SSH key found in environment variables.")
         raise RuntimeError("No password or SSH key found in environment variables.")
 
     # Get api_url from environment
-    api_url = os.environ.get("API_URL")
+    api_url = os.getenv("API_URL")
 
     revision_config_res = await db.execute(
         select(RevisionConfig)
@@ -107,9 +107,25 @@ async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args,
 
         # For certain devices we can use copy to running-config command with http instead of sending the acl one line at a time
         # Only if we have a api_url
+        # TODO add temporary authentication here
         if api_url and generator in ["cisco", "cisconx"]:
+            logger.info("Trying to get acl from remote API")
+            net_connect.write_channel(f"copy {api_url}/revisions/{revision_id}/raw_config")
+            
+            #See https://community.cisco.com/t5/switching/entering-a-question-mark-into-ios-command/td-p/696746
+            net_connect.write_channel('\x16')  # Ctrl+V (ASCII 0x16) 
+            net_connect.write_channel(f"?target_id={target_id} running-config")
+            
             output = net_connect.send_command(
-                f"copy {api_url}/revision/{revision_id}/raw_config?target_id={target_id} running-config"
+                "\n",
+                expect_string=r"Destination filename",
+                strip_prompt=False,
+                strip_command=False,
+            )
+            logger.info(output)
+            
+            output = net_connect.send_command(
+                command_string="\n", expect_string=r"#", strip_prompt=False, strip_command=False
             )
             logger.info(output)
         else:
