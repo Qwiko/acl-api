@@ -186,7 +186,13 @@ async def write_entries(
 
     # Check if the entry already exists
     existing_entry = await entry_crud.get_all(
-        db, filter_by={"protocol": values.protocol, "port": values.port, "service_id": service.id}
+        db,
+        filter_by={
+            "protocol": values.protocol,
+            "port": values.port,
+            "service_id": service.id,
+            "nested_service_id": values.nested_service_id,
+        },
     )
     if existing_entry:
         raise RequestValidationError(

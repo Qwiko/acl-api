@@ -208,7 +208,10 @@ async def write_network_address(
             raise RequestValidationError([{"loc": ["body", "nested_network_id"], "msg": "Nested network not found"}])
 
     # Check if the address already exists
-    existing_address = await address_crud.get_all(db, filter_by={"address": values.address, "network_id": network.id})
+    existing_address = await address_crud.get_all(
+        db,
+        filter_by={"address": values.address, "network_id": network.id, "nested_network_id": values.nested_network_id},
+    )
     if existing_address:
         raise RequestValidationError([{"loc": ["body", "address"], "msg": "Network address already exists"}])
 

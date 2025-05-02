@@ -125,7 +125,8 @@ def test_delete_network(db: Session, client: TestClient) -> None:
 
 
 def test_post_network_address(db: Session, client: TestClient) -> None:
-    nested_network = generators.create_network(db)
+    nested_network_1 = generators.create_network(db)
+    nested_network_2 = generators.create_network(db)
     network = generators.create_network(db)
 
     # Test creating a address with adress
@@ -143,14 +144,23 @@ def test_post_network_address(db: Session, client: TestClient) -> None:
     response = client.post(
         f"/api/v1/networks/{network.id}/addresses",
         json={
-            "nested_network_id": nested_network.id,
+            "nested_network_id": nested_network_1.id,
+        },
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+
+    # Test adding nested_network_2
+    response = client.post(
+        f"/api/v1/networks/{network.id}/addresses",
+        json={
+            "nested_network_id": nested_network_2.id,
         },
     )
     assert response.status_code == status.HTTP_201_CREATED
 
     # Test deleting the nested network
     response = client.delete(
-        f"/api/v1/networks/{nested_network.id}",
+        f"/api/v1/networks/{nested_network_1.id}",
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
 

@@ -125,7 +125,8 @@ def test_delete_service(db: Session, client: TestClient) -> None:
 
 
 def test_post_service_entry(db: Session, client: TestClient) -> None:
-    nested_service = generators.create_service(db)
+    nested_service_1 = generators.create_service(db)
+    nested_service_2 = generators.create_service(db)
     service = generators.create_service(db)
 
     # Test creating a entry with protocol / port
@@ -143,14 +144,23 @@ def test_post_service_entry(db: Session, client: TestClient) -> None:
     response = client.post(
         f"/api/v1/services/{service.id}/entries",
         json={
-            "nested_service_id": nested_service.id,
+            "nested_service_id": nested_service_1.id,
+        },
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+
+    # Adding nested_service_2 to the entry
+    response = client.post(
+        f"/api/v1/services/{service.id}/entries",
+        json={
+            "nested_service_id": nested_service_2.id,
         },
     )
     assert response.status_code == status.HTTP_201_CREATED
 
     # Test deleting the nested service
     response = client.delete(
-        f"/api/v1/services/{nested_service.id}",
+        f"/api/v1/services/{nested_service_1.id}",
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
