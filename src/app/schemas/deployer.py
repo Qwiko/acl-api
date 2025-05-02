@@ -92,6 +92,8 @@ class DeployerProxmoxNftConfigRead(BaseModel):
     host: IPvAnyAddress | DNSHostname
     username: str
     port: int
+    password_envvar: Optional[str] = None
+    ssh_key_envvar: Optional[str] = None
 
 
 class DeployerNetmikoConfigCreate(BaseModel):
@@ -117,6 +119,9 @@ class DeployerNetmikoConfigRead(BaseModel):
     host: IPvAnyAddress | DNSHostname
     username: str
     port: int
+    password_envvar: Optional[str] = None
+    enable_envvar: Optional[str] = None  # Enable password
+    ssh_key_envvar: Optional[str] = None
 
 
 class DeployerGitConfigCreate(BaseModel):
@@ -145,3 +150,6 @@ class DeployerGitConfigRead(BaseModel):
     repo_url: str
     branch: str
     folder_path: Optional[str] = None
+    
+    ssh_key_envvar: Optional[str] = None
+    auth_token_envvar: Optional[str] = None
