@@ -7,7 +7,7 @@ import fastapi
 from arq import create_pool
 from arq.connections import RedisSettings
 from fastapi import APIRouter, FastAPI, Request
-from fastapi.exceptions import RequestValidationError
+from fastapi.exceptions import RequestValidationError, HTTPException
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
@@ -47,6 +47,11 @@ class ErrorResponse(BaseModel):
     body: ErrorBody
 
 
+class HTTPErrorSchema(BaseModel):
+    status: int
+    message: str
+
+
 def format_react_admin_errors(exc: RequestValidationError):
     errors = {}
 
@@ -67,6 +72,13 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(
         status_code=422,
         content={"errors": format_react_admin_errors(exc)},
+    )
+
+
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"message": exc.detail},
     )
 
 
@@ -186,11 +198,18 @@ def create_application(
                 allow_headers=["*"],
             )
         ],
-        exception_handlers={RequestValidationError: validation_exception_handler},
+        exception_handlers={
+            RequestValidationError: validation_exception_handler,
+            HTTPException: http_exception_handler,
+        },
         responses={
             422: {
                 "description": "Validation Error",
                 "model": ErrorResponse,
+            },
+            403: {
+                "description": "Forbidden Error",
+                "model": HTTPErrorSchema,
             },
         },
         lifespan=lifespan,
@@ -199,7 +218,7 @@ def create_application(
     application.include_router(router)
 
     add_pagination(application)
-    
+
     if isinstance(settings, ClientSideCacheSettings):
         application.add_middleware(ClientCacheMiddleware, max_age=settings.CLIENT_CACHE_MAX_AGE)
 

@@ -1,4 +1,4 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, Callable
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -26,9 +26,10 @@ from ...schemas.test import (
     TestResultRead,
     TestUpdate,
 )
-from .revisions import fetch_addresses, fetch_networks, fetch_terms
+from ...core.utils.dynamic_policy_helpers import fetch_addresses, fetch_networks, fetch_terms
 
 router = APIRouter(tags=["tests"])
+func: Callable
 
 
 @router.get("/tests", response_model=Page[TestRead])
@@ -196,8 +197,6 @@ async def erase_test_case(
 
 @router.get("/run_tests", response_model=TestResultRead)
 async def get_tests_run(
-    request: Request,
-    response: Response,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     dynamic_policy_id: int = None,
     policy_id: int = None,
@@ -270,4 +269,10 @@ async def get_tests_run(
 
     not_matched_terms = [term for term in expanded_terms if term.id not in matched_ids]
 
-    return {"tests": all_matches, "not_matched_terms": not_matched_terms}
+    coverage = round((float(len(list(set(matched_ids)))) / float(len(expanded_terms))), 4)
+    print("coverage:", coverage)
+    return {
+        "tests": all_matches,
+        "not_matched_terms": not_matched_terms,
+        "coverage": coverage,
+    }

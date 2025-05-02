@@ -94,3 +94,4 @@ class TestResultOneRead(BaseModel):
 class TestResultRead(BaseModel):
     tests: List[TestResultOneRead]
     not_matched_terms: List[PolicyTermReadInternal]
+    coverage: float  # Annotated[float, Field(ge=0.0, le=1.0)]
