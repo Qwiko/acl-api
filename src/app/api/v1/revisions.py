@@ -1,19 +1,20 @@
 import json
 from typing import Annotated, Any, Callable, Union
 
-from fastapi.responses import PlainTextResponse
-
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import PlainTextResponse
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...core.config import settings
 from ...core.cruds import deployer_crud, dynamic_policy_crud, policy_crud, revision_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
 from ...core.utils import queue
+from ...core.utils.dynamic_policy_helpers import fetch_addresses, fetch_networks, fetch_terms
 from ...core.utils.generate import generate_acl_from_policy, get_expanded_terms
 from ...filters.revision import RevisionFilter
 from ...models import (
@@ -33,7 +34,6 @@ from ...schemas.revision import (
     PolicyRevisionReadBrief,
 )
 from .tests import get_tests_run
-from ...core.utils.dynamic_policy_helpers import fetch_addresses, fetch_networks, fetch_terms
 
 router = APIRouter(tags=["revisions"])
 
@@ -68,7 +68,7 @@ async def write_revision(
         test_dict = await get_tests_run(db=db, policy_id=values.policy_id)
 
     coverage = test_dict.get("coverage", 0.0)
-    if coverage < 1.0:
+    if coverage < settings.REVISON_NEEDED_COVERAGE:
         raise HTTPException(
             status_code=403, detail=f"Test coverage {round(coverage*100)}% is lower than the required 100%"
         )
