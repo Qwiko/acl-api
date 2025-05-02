@@ -1,6 +1,8 @@
 import json
 from typing import Annotated, Any, Callable, Union
 
+from fastapi.responses import PlainTextResponse
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
@@ -216,6 +218,29 @@ async def erase_revision(
 ) -> Any:
     await revision_crud.delete(db, revision_id)
     return {"message": "Revision deleted"}
+
+
+@router.get("/revisions/{revision_id}/raw_config", response_class=PlainTextResponse)  # , response_model=Response)
+async def read_revision_config_raw(
+    revision_id: int,
+    target_id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+) -> Any:
+    """
+    Get the raw config for a revision and target.
+    """
+    res = await db.execute(
+        select(RevisionConfig)
+        .where(RevisionConfig.revision_id == revision_id)
+        .where(RevisionConfig.target_id == target_id)
+    )
+
+    revision_config: RevisionConfig = res.scalars().one_or_none()
+
+    if revision_config is None:
+        raise NotFoundException("RevisionConfig not found")
+
+    return revision_config.config
 
 
 @router.post("/revisions/{revision_id}/deploy", response_model=Any, status_code=201)
