@@ -220,7 +220,7 @@ async def erase_revision(
     return {"message": "Revision deleted"}
 
 
-@router.get("/revisions/{revision_id}/raw_config", response_class=PlainTextResponse)  # , response_model=Response)
+@router.get("/revisions/{revision_id}/raw_config/{target_id}", response_class=PlainTextResponse)  # , response_model=Response)
 async def read_revision_config_raw(
     revision_id: int,
     target_id: int,
