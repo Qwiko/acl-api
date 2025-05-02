@@ -132,10 +132,12 @@ class PolicyTerm(Base, TimestampsMixin):
         secondary="policy_term_destination_service_association", lazy="selectin"
     )
 
+    # TODO change to enum
     option: Mapped[Optional[str]] = mapped_column(String)
 
     logging: Mapped[Optional[bool]] = mapped_column(Boolean)
 
+    # TODO change to enum
     action: Mapped[Optional[str]] = mapped_column(String)
 
     negate_source_networks: Mapped[Optional[bool]] = mapped_column(Boolean)
