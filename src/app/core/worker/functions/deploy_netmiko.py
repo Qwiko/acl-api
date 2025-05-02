@@ -108,16 +108,11 @@ async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args,
         # For certain devices we can use copy to running-config command with http instead of sending the acl one line at a time
         # Only if we have a api_url
         # TODO add temporary authentication here
-        if api_url and generator in ["cisco", "cisconx"]:
+        if api_url and generator in ["cisco"]:
             logger.info("Trying to get acl from remote API")
-            net_connect.write_channel(f"copy {api_url}/revisions/{revision_id}/raw_config")
-            
-            #See https://community.cisco.com/t5/switching/entering-a-question-mark-into-ios-command/td-p/696746
-            net_connect.write_channel('\x16')  # Ctrl+V (ASCII 0x16) 
-            net_connect.write_channel(f"?target_id={target_id} running-config")
-            
+
             output = net_connect.send_command(
-                "\n",
+                f"copy {api_url}/revisions/{revision_id}/raw_config/{target_id} running-config",
                 expect_string=r"Destination filename",
                 strip_prompt=False,
                 strip_command=False,
@@ -126,6 +121,21 @@ async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args,
             
             output = net_connect.send_command(
                 command_string="\n", expect_string=r"#", strip_prompt=False, strip_command=False
+            )
+            logger.info(output)
+        elif api_url and generator in ["cisconx"]:
+            logger.info("Trying to get acl from remote API")
+
+            output = net_connect.send_command(
+                f"copy {api_url}/revisions/{revision_id}/raw_config/{target_id} running-config",
+                expect_string=r"Enter vrf",
+                strip_prompt=False,
+                strip_command=False,
+            )
+            logger.info(output)
+            
+            output = net_connect.send_command(
+                command_string="management", expect_string=r"#", strip_prompt=False, strip_command=False
             )
             logger.info(output)
         else:
