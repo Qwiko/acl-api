@@ -72,6 +72,13 @@ async def write_revision(
         raise HTTPException(
             status_code=403, detail=f"Test coverage {round(coverage*100)}% is lower than the required 100%"
         )
+    # Check if some tests have passed = false
+    failed_tests = [test for test in test_dict.get("tests") if test.get("passed") is False]
+    if failed_tests:
+        raise HTTPException(
+            status_code=403,
+            detail="Some tests did not pass, all tests must pass to create a revision.",
+        )
 
     if isinstance(values, DynamicPolicyRevisionCreate):
         dynamic_policy = await dynamic_policy_crud.get(db, values.dynamic_policy_id, load_relations=True)
@@ -220,7 +227,9 @@ async def erase_revision(
     return {"message": "Revision deleted"}
 
 
-@router.get("/revisions/{revision_id}/raw_config/{target_id}", response_class=PlainTextResponse)  # , response_model=Response)
+@router.get(
+    "/revisions/{revision_id}/raw_config/{target_id}", response_class=PlainTextResponse
+)  # , response_model=Response)
 async def read_revision_config_raw(
     revision_id: int,
     target_id: int,
