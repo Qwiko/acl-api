@@ -138,7 +138,7 @@ async def write_policy_term(
         raise NotFoundException("Policy not found")
 
     if [term.name for term in policy.terms if term.name == values.name]:
-        raise HTTPException(status_code=422, detail={"name": "Name must be unique."})
+        raise RequestValidationError([{"loc": ["body", "name"], "msg": "A term with this name already exists"}])
 
     # Get existing positions
     result = await db.execute(
