@@ -1,5 +1,7 @@
+from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
 
+from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy_mixins.timestamp import TimestampsMixin
@@ -8,15 +10,30 @@ from ..core.db.database import Base
 from .network import Network
 
 if TYPE_CHECKING:
+    from .policy import Policy
     from .revision import Revision
     from .target import Target
     from .test import Test
-    from .policy import Policy
 else:
     Target = "Target"
     Revision = "Revision"
     Test = "Test"
     Policy = "Policy"
+
+
+class DynamicPolicyFilterActionEnum(str, Enum):
+    ACCEPT = "accept"
+    DENY = "deny"
+    NEXT = "next"
+    REJECT = "reject"
+    REJECT_WITH_TCP_RST = "reject-with-tcp-rst"
+
+
+class DynamicPolicyDefaultActionEnum(str, Enum):
+    ACCEPT = "accept"
+    ACCEPT_LOG = "accept-log"
+    DENY = "deny"
+    DENY_LOG = "deny-log"
 
 
 class DynamicPolicy(Base, TimestampsMixin):
@@ -27,9 +44,13 @@ class DynamicPolicy(Base, TimestampsMixin):
     name: Mapped[str] = mapped_column(String)
     comment: Mapped[Optional[str]] = mapped_column(String)
 
-    filter_action: Mapped[Optional[str]] = mapped_column(String)
+    filter_action: Mapped[Optional[DynamicPolicyFilterActionEnum]] = mapped_column(
+        SQLAlchemyEnum(DynamicPolicyFilterActionEnum)
+    )
 
-    default_action: Mapped[Optional[str]] = mapped_column(String)
+    default_action: Mapped[Optional[DynamicPolicyDefaultActionEnum]] = mapped_column(
+        SQLAlchemyEnum(DynamicPolicyDefaultActionEnum)
+    )
 
     tests: Mapped[List["Test"]] = relationship(
         secondary="test_dynamic_policy_association", lazy="selectin", back_populates="dynamic_policies"

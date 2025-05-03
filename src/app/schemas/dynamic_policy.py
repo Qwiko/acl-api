@@ -1,39 +1,24 @@
 from typing import Annotated, List, Optional
 
-from pydantic import BaseModel, Field, field_validator, PositiveInt
+from pydantic import BaseModel, Field, PositiveInt, field_validator
+
 
 from ..core.schemas import TimestampSchema
-
 from .custom_validators import EnsureListUnique
+from ..models.dynamic_policy import DynamicPolicyDefaultActionEnum, DynamicPolicyFilterActionEnum
+
 
 class DynamicPolicyBase(BaseModel):
     name: str  # Annotated[str, Field(min_length=2, max_length=30, examples=["This is my DynamicPolicy name"])]
     comment: Annotated[str | None, Field(max_length=100, examples=["This is my Dynamicpolicy comment"], default=None)]
 
-    @field_validator("filter_action", check_fields=False)
-    @classmethod
-    def validate_filter_action(cls, v: str) -> str:
-        if not v:
-            return v
-        if v not in ["accept", "deny", "next", "reject", "reject-with-tcp-rst"]:
-            raise ValueError("not a valid filter_action.")
-        return v
-
-    @field_validator("default_action", check_fields=False)
-    @classmethod
-    def validate_default_action(cls, v: str) -> str:
-        if not v:
-            return v
-        if v not in ["accept", "accept-log", "deny", "deny-log"]:
-            raise ValueError("not a valid default action.")
-        return v
 
 class DynamicPolicyRead(TimestampSchema, DynamicPolicyBase):
     id: PositiveInt
 
-    filter_action: Optional[str]
+    filter_action: Optional[DynamicPolicyFilterActionEnum]
 
-    default_action: Optional[str]
+    default_action: Optional[DynamicPolicyDefaultActionEnum]
 
     targets_ids: Annotated[List[PositiveInt], Field(serialization_alias="targets", default_factory=list)]
     tests_ids: Annotated[List[PositiveInt], Field(serialization_alias="tests", default_factory=list)]
@@ -55,9 +40,9 @@ class DynamicPolicyCreated(TimestampSchema, DynamicPolicyBase):
 
 
 class DynamicPolicyCreate(DynamicPolicyBase):
-    filter_action: Optional[str] = None
+    filter_action: Optional[DynamicPolicyFilterActionEnum] = None
 
-    default_action: Optional[str] = None
+    default_action: Optional[DynamicPolicyDefaultActionEnum] = None
 
     targets: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
     tests: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
@@ -69,9 +54,9 @@ class DynamicPolicyCreate(DynamicPolicyBase):
 
 
 class DynamicPolicyUpdate(DynamicPolicyBase):
-    filter_action: Optional[str] = None
+    filter_action: Optional[DynamicPolicyFilterActionEnum] = None
 
-    default_action: Optional[str] = None
+    default_action: Optional[DynamicPolicyDefaultActionEnum] = None
 
     targets: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
     tests: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]

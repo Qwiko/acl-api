@@ -1,6 +1,8 @@
+from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy_mixins.timestamp import TimestampsMixin
@@ -17,6 +19,21 @@ else:
     Target = "Target"
     Revision = "Revision"
     Test = "Test"
+
+
+class PolicyActionEnum(str, Enum):
+    ACCEPT = "accept"
+    DENY = "deny"
+    NEXT = "next"
+    REJECT = "reject"
+    REJECT_WITH_TCP_RST = "reject-with-tcp-rst"
+
+
+class PolicyOptionEnum(str, Enum):
+    ESTABLISHED = "established"
+    IS_FRAGMENT = "is-fragment"
+    TCP_ESTABLISHED = "tcp-established"
+    TCP_INITIAL = "tcp-initial"
 
 
 class Policy(Base, TimestampsMixin):
@@ -132,13 +149,11 @@ class PolicyTerm(Base, TimestampsMixin):
         secondary="policy_term_destination_service_association", lazy="selectin"
     )
 
-    # TODO change to enum
-    option: Mapped[Optional[str]] = mapped_column(String)
+    option: Mapped[Optional[PolicyOptionEnum]] = mapped_column(SQLAlchemyEnum(PolicyOptionEnum))
 
     logging: Mapped[Optional[bool]] = mapped_column(Boolean)
 
-    # TODO change to enum
-    action: Mapped[Optional[str]] = mapped_column(String)
+    action: Mapped[PolicyActionEnum] = mapped_column(SQLAlchemyEnum(PolicyActionEnum))
 
     negate_source_networks: Mapped[Optional[bool]] = mapped_column(Boolean)
     negate_destination_networks: Mapped[Optional[bool]] = mapped_column(Boolean)

@@ -1,5 +1,4 @@
 from datetime import datetime
-from enum import Enum
 from typing import Annotated, Any, List, Optional, Text, Union
 
 from pydantic import BaseModel, Field, PositiveInt, ValidationError, field_validator, model_validator
@@ -7,21 +6,7 @@ from pydantic_core import InitErrorDetails, PydanticCustomError
 
 from ..core.schemas import TimestampSchema
 from .custom_validators import EnsureListUnique
-
-
-class PolicyActionEnum(str, Enum):
-    ACCEPT = "accept"
-    DENY = "deny"
-    NEXT = "next"
-    REJECT = "reject"
-    REJECT_WITH_TCP_RST = "reject-with-tcp-rst"
-
-
-class PolicyOptionEnum(str, Enum):
-    ESTABLISHED = "established"
-    IS_FRAGMENT = "is-fragment"
-    TCP_ESTABLISHED = "tcp-established"
-    TCP_INITIAL = "tcp-initial"
+from ..models.policy import PolicyActionEnum, PolicyOptionEnum
 
 
 class PolicyBase(BaseModel):
