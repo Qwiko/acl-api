@@ -120,7 +120,7 @@ async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args,
             logger.info(output)
             
             output = net_connect.send_command(
-                command_string="\n", expect_string=r"#", strip_prompt=False, strip_command=False
+                command_string="\n", expect_string=r"#", read_timeout=60, strip_prompt=False, strip_command=False
             )
             logger.info(output)
         elif api_url and generator in ["cisconx"]:
@@ -135,7 +135,7 @@ async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args,
             logger.info(output)
             
             output = net_connect.send_command(
-                command_string="management", expect_string=r"#", strip_prompt=False, strip_command=False
+                command_string="management", expect_string=r"#", read_timeout=60, strip_prompt=False, strip_command=False
             )
             logger.info(output)
         else:
