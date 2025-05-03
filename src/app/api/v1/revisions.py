@@ -67,17 +67,18 @@ async def write_revision(
     else:
         test_dict = await get_tests_run(db=db, policy_id=values.policy_id)
 
-    coverage = test_dict.get("coverage", 0.0)
-    if coverage < settings.REVISON_NEEDED_COVERAGE:
-        raise HTTPException(
-            status_code=403, detail=f"Test coverage {round(coverage*100)}% is lower than the required 100%"
-        )
     # Check if some tests have passed = false
     failed_tests = [test for test in test_dict.get("tests") if test.get("passed") is False]
     if failed_tests:
         raise HTTPException(
             status_code=403,
             detail="Some tests did not pass, all tests must pass to create a revision.",
+        )
+
+    coverage = test_dict.get("coverage", 0.0)
+    if coverage < settings.REVISON_NEEDED_COVERAGE:
+        raise HTTPException(
+            status_code=403, detail=f"Test coverage {round(coverage*100)}% is lower than the required 100%"
         )
 
     if isinstance(values, DynamicPolicyRevisionCreate):
