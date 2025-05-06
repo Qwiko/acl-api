@@ -15,7 +15,7 @@ class DynamicPolicyFilter(Filter):
     name__ilike: Optional[str] = None
     name__like: Optional[str] = None
     name__neq: Optional[str] = None
-    
+
     order_by: list[str] = ["id"]
 
     q: Optional[str] = None
@@ -24,5 +24,3 @@ class DynamicPolicyFilter(Filter):
         model = DynamicPolicy
         search_model_fields = ["name"]
         search_field_name = "q"
-
-

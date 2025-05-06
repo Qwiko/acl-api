@@ -10,6 +10,7 @@ from sqlalchemy.orm.session import Session
 from src.app.core.db.database import Base
 from src.app.core.config import settings
 from src.app.main import app
+from src.app.core.security import get_current_user, User
 
 DATABASE_URI = settings.POSTGRES_URI
 DATABASE_PREFIX = settings.POSTGRES_SYNC_PREFIX
@@ -29,6 +30,11 @@ def drop_all_tables_before_tests():
 
 @pytest.fixture(scope="session")
 def client() -> Generator[TestClient, Any, None]:
+    def override_get_current_user():
+        return User(id=1, username="testuser")
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
     with TestClient(app) as _client:
         yield _client
     app.dependency_overrides = {}

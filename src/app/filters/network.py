@@ -15,6 +15,7 @@ class NetworkAddressFilter(Filter):
     class Constants(Filter.Constants):
         model = NetworkAddress
 
+
 class NetworkFilter(Filter):
     id: Optional[int] = None
     id__in: Optional[list[int]] = None
@@ -26,7 +27,7 @@ class NetworkFilter(Filter):
     name__like: Optional[str] = None
     name__neq: Optional[str] = None
     addresses: Optional[NetworkAddressFilter] = FilterDepends(with_prefix("addresses", NetworkAddressFilter))
-    
+
     order_by: list[str] = ["id"]
     q: Optional[str] = None
 
@@ -34,5 +35,3 @@ class NetworkFilter(Filter):
         model = Network
         search_model_fields = ["name"]
         search_field_name = "q"
-
-

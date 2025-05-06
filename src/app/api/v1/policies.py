@@ -1,6 +1,6 @@
 from typing import Annotated, Any, Union
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Security
 from fastapi.exceptions import RequestValidationError
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
@@ -11,6 +11,7 @@ from sqlalchemy.future import select
 from ...core.cruds import network_crud, policy_crud, service_crud, term_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
+from ...core.security import User, get_current_user
 from ...core.utils.lexirank import get_rank_between
 from ...filters.policy import PolicyFilter, PolicyTermFilter
 from ...models import Policy, PolicyTerm
@@ -38,6 +39,7 @@ router = APIRouter(tags=["policies"])
 @router.get("/policies", response_model=Page[PolicyReadBrief])
 async def read_policies(
     db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["policies:read"])],
     policy_filter: PolicyFilter = FilterDepends(PolicyFilter),
 ) -> Any:
     query = select(Policy)
@@ -47,7 +49,11 @@ async def read_policies(
 
 
 @router.post("/policies", response_model=PolicyCreated, status_code=201)
-async def write_policy(values: PolicyCreate, db: Annotated[AsyncSession, Depends(async_get_db)]) -> Any:
+async def write_policy(
+    values: PolicyCreate,
+    current_user: Annotated[User, Security(get_current_user, scopes=["policies:write"])],
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+) -> Any:
     # Check if the policy name already exists
     found_policy = await policy_crud.get_all(db, filter_by={"name": values.name})
     if found_policy:
@@ -58,7 +64,11 @@ async def write_policy(values: PolicyCreate, db: Annotated[AsyncSession, Depends
 
 
 @router.get("/policies/{id}", response_model=PolicyRead)
-async def read_policy(id: int, db: Annotated[AsyncSession, Depends(async_get_db)]) -> Any:
+async def read_policy(
+    id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["policies:read"])],
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+) -> Any:
     policy = await policy_crud.get(db, id, load_relations=True)
     return policy
 
@@ -68,38 +78,41 @@ async def read_policy(id: int, db: Annotated[AsyncSession, Depends(async_get_db)
 async def put_policy(
     id: int,
     values: PolicyUpdate,
+    current_user: Annotated[User, Security(get_current_user, scopes=["policies:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     policy = await policy_crud.update(db, id, values)
     return policy
 
 
-@router.delete("/policies/{id}")
-# # @cache("{username}_post_cache", resource_id_name="id", to_invalidate_extra={"{username}_posts": "{username}"})
+@router.delete("/policies/{policy_id}")
 async def erase_policy(
-    id: int,
-    # current_user: Annotated[PolicyRead, Depends(get_current_user)],
+    policy_id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["policies:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     # Check if policy is being used a nested policyterm
-
-    nested_term = await db.execute(select(PolicyTerm).where(PolicyTerm.nested_policy_id == id))
+    nested_term = await db.execute(select(PolicyTerm).where(PolicyTerm.nested_policy_id == policy_id))
 
     if nested_term.scalars().all():
-        raise HTTPException(status_code=404, detail="Policy is being used in a nested policy term")
+        raise HTTPException(status_code=403, detail="Policy is being used in a nested policy term")
 
-    policy = await policy_crud.delete(db, id)
+    policy = await policy_crud.delete(db, policy_id)
     return {"message": "Policy deleted"}
 
 
-@router.get("/policies/{id}/usage", response_model=PolicyUsage)
-async def read_policy_usage(id: int, db: Annotated[AsyncSession, Depends(async_get_db)]) -> Any:
-    policy = await policy_crud.get(db, id, True)
+@router.get("/policies/{policy_id}/usage", response_model=PolicyUsage)
+async def read_policy_usage(
+    policy_id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["policies:read"])],
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+) -> Any:
+    policy = await policy_crud.get(db, policy_id, True)
 
     if not policy:
         raise NotFoundException("Policy not found")
 
-    policies_stmt = select(PolicyTerm.policy_id).distinct().where(PolicyTerm.nested_policy_id == id)
+    policies_stmt = select(PolicyTerm.policy_id).distinct().where(PolicyTerm.nested_policy_id == policy_id)
 
     p_result = await db.execute(policies_stmt)
 
@@ -115,6 +128,7 @@ async def read_policy_usage(id: int, db: Annotated[AsyncSession, Depends(async_g
 async def read_policy_terms(
     policy_id: int,
     db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["policies:read"])],
     policy_term_filter: PolicyTermFilter = FilterDepends(PolicyTermFilter),
 ) -> Any:
     query = select(PolicyTerm).where(PolicyTerm.policy_id == policy_id)
@@ -131,6 +145,7 @@ async def write_policy_term(
     request: Request,
     policy_id: int,
     values: Union[PolicyTermCreate, PolicyTermNestedCreate],
+    current_user: Annotated[User, Security(get_current_user, scopes=["policies:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     policy = await policy_crud.get(db, policy_id)
@@ -139,6 +154,21 @@ async def write_policy_term(
 
     if [term.name for term in policy.terms if term.name == values.name]:
         raise RequestValidationError([{"loc": ["body", "name"], "msg": "A term with this name already exists"}])
+
+    # Check if the nested policy exists
+    if isinstance(values, PolicyTermNestedCreate):
+        nested_policy = await policy_crud.get(db, values.nested_policy_id)
+        if not nested_policy:
+            raise RequestValidationError([{"loc": ["body", "nested_policy_id"], "msg": "Nested policy not found"}])
+
+        # Check if the nested policy is already being used in another term
+        nested_term = await db.execute(
+            select(PolicyTerm)
+            .where(PolicyTerm.nested_policy_id == values.nested_policy_id)
+            .where(PolicyTerm.policy_id == policy_id)
+        )
+        if nested_term.scalars().all():
+            raise RequestValidationError([{"loc": ["body", "nested_policy_id"], "msg": "Nested policy not found"}])
 
     # Get existing positions
     result = await db.execute(
@@ -235,7 +265,11 @@ async def write_policy_term(
 
 @router.get("/policies/{policy_id}/terms/{id}", response_model=Union[PolicyTermRead, PolicyTermNestedRead])
 async def read_policy_term(
-    request: Request, policy_id: int, id: int, db: Annotated[AsyncSession, Depends(async_get_db)]
+    request: Request,
+    policy_id: int,
+    id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["policies:read"])],
+    db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     policy = await policy_crud.get(db, policy_id)
     if policy is None:
@@ -250,13 +284,12 @@ async def read_policy_term(
 
 
 @router.put("/policies/{policy_id}/terms/{id}", response_model=Union[PolicyTermReadBrief, PolicyTermNestedReadBrief])
-# @cache("{username}_post_cache", resource_id_name="id", pattern_to_invalidate_extra=["{username}_posts:*"])
 async def put_policy_terms(
     request: Request,
     policy_id: int,
     id: int,
     values: Union[PolicyTermUpdate, PolicyTermNestedUpdate],
-    # current_user: Annotated[UserRead, Depends(get_current_user)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["policies:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     policy = await policy_crud.get(db, policy_id)
@@ -344,12 +377,11 @@ async def put_policy_terms(
 
 
 @router.delete("/policies/{policy_id}/terms/{id}")
-# # @cache("{username}_post_cache", resource_id_name="id", to_invalidate_extra={"{username}_posts": "{username}"})
 async def erase_policy_term(
     request: Request,
     policy_id: int,
     id: int,
-    # current_user: Annotated[NetworkRead, Depends(get_current_user)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["policies:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     policy = await policy_crud.get(db, policy_id)

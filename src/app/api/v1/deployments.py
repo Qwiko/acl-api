@@ -1,18 +1,17 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Security
 from fastapi.exceptions import RequestValidationError
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
-from fastapi_pagination import paginate as dict_paginate
 from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.sql import and_
 
 from ...core.cruds import deployment_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
+from ...core.security import User, get_current_user
 from ...filters.deployment import DeploymentFilter
 from ...models import Deployment
 from ...schemas.deployment import DeploymentRead, DeploymentReadBrief
@@ -24,6 +23,7 @@ router = APIRouter(tags=["deployments"])
 @router.get("/deployments", response_model=Page[DeploymentReadBrief])
 async def read_deployments(
     db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["deployments:read"])],
     deployment_filter: DeploymentFilter = FilterDepends(DeploymentFilter),
 ) -> Any:
     query = select(Deployment)
@@ -34,7 +34,11 @@ async def read_deployments(
 
 
 @router.get("/deployments/{id}", response_model=DeploymentRead)
-async def read_deployment(id: int, db: Annotated[AsyncSession, Depends(async_get_db)]) -> Any:
+async def read_deployment(
+    id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["deployments:read"])],
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+) -> Any:
     deployment = await deployment_crud.get(db, id, load_relations=True)
 
     if deployment is None:
@@ -46,6 +50,7 @@ async def read_deployment(id: int, db: Annotated[AsyncSession, Depends(async_get
 @router.delete("/deployments/{id}")
 async def erase_deployment(
     id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["deployments:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     publisher = await deployment_crud.get(db, id)

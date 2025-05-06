@@ -153,7 +153,7 @@ class PolicyTerm(Base, TimestampsMixin):
 
     logging: Mapped[Optional[bool]] = mapped_column(Boolean)
 
-    action: Mapped[PolicyActionEnum] = mapped_column(SQLAlchemyEnum(PolicyActionEnum))
+    action: Mapped[Optional[PolicyActionEnum]] = mapped_column(SQLAlchemyEnum(PolicyActionEnum))
 
     negate_source_networks: Mapped[Optional[bool]] = mapped_column(Boolean)
     negate_destination_networks: Mapped[Optional[bool]] = mapped_column(Boolean)

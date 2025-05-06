@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from src.app import models
 from tests.conftest import fake
+from src.app.schemas.deployer import DeployerModeEnum
 
 
 def create_network(db: Session) -> models.Network:
@@ -42,13 +43,20 @@ def create_target(db: Session) -> models.Target:
 
 
 def create_deployer(db: Session, target: models.Target) -> models.Deployer:
-    _deployer = models.Deployer(
-        name=fake.name(),
-        target=target,
-    )
+    _deployer = models.Deployer(name=fake.name(), target=target, mode=DeployerModeEnum.GIT)
 
     db.add(_deployer)
     db.commit()
     db.refresh(_deployer)
 
     return _deployer
+
+
+def create_policy(db: Session) -> models.Policy:
+    _policy = models.Policy(name=fake.name(), comment=fake.sentence(), tests=[], targets=[])
+
+    db.add(_policy)
+    db.commit()
+    db.refresh(_policy)
+
+    return _policy

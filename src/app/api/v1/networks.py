@@ -1,7 +1,7 @@
 import asyncio
 from typing import Annotated, Any, Callable, List
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Security
 from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
@@ -14,6 +14,7 @@ from sqlalchemy.sql import and_, exists, or_
 from ...core.cruds import address_crud, network_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
+from ...core.security import User, get_current_user
 from ...filters.network import NetworkAddressFilter, NetworkFilter
 from ...models import DynamicPolicy, Network, NetworkAddress, PolicyTerm
 from ...models.dynamic_policy import DynamicPolicyDestinationFilterAssociation, DynamicPolicySourceFilterAssociation
@@ -36,6 +37,7 @@ func: Callable
 
 @router.get("/networks", response_model=Page[NetworkRead])
 async def read_networks(
+    current_user: Annotated[User, Security(get_current_user, scopes=["networks:read"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
     network_filter: NetworkFilter = FilterDepends(NetworkFilter),
 ) -> Any:
@@ -52,6 +54,7 @@ async def read_networks(
 @router.post("/networks", response_model=NetworkCreated, status_code=201)
 async def write_network(
     values: NetworkCreate,
+    current_user: Annotated[User, Security(get_current_user, scopes=["networks:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     # Check if the network name already exists
@@ -64,9 +67,14 @@ async def write_network(
     return network
 
 
-@router.get("/networks/{id}", response_model=NetworkRead)
-async def read_network(request: Request, id: int, db: Annotated[AsyncSession, Depends(async_get_db)]) -> dict:
-    network = await network_crud.get(db, id, True)
+@router.get("/networks/{network_id}", response_model=NetworkRead)
+async def read_network(
+    request: Request,
+    network_id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["networks:read"])],
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+) -> dict:
+    network = await network_crud.get(db, network_id, True)
 
     if not network:
         raise NotFoundException("Network not found")
@@ -74,46 +82,56 @@ async def read_network(request: Request, id: int, db: Annotated[AsyncSession, De
     return network
 
 
-@router.put("/networks/{id}", response_model=NetworkCreated)
-# @cache("{username}_post_cache", resource_id_name="id", pattern_to_invalidate_extra=["{username}_posts:*"])
+@router.put("/networks/{network_id}", response_model=NetworkCreated)
 async def put_network(
-    id: int,
+    network_id: int,
     values: NetworkUpdate,
-    # current_user: Annotated[NetworkRead, Depends(get_current_user)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["networks:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, Any]:
     # Check if the network exists
-    network = await network_crud.get(db, id)
+    network = await network_crud.get(db, network_id)
     if not network:
         raise NotFoundException("Network not found")
 
-    # Check if the network name exists
-    result = await db.execute(select(Network).where(and_(Network.name == values.name, Network.id.notin_([id]))))
+    # Check if the network name already exists
+    result = await db.execute(select(Network).where(and_(Network.name == values.name, Network.id.notin_([network_id]))))
     existing_network = result.unique().scalars().one_or_none()
     if existing_network:
         raise RequestValidationError([{"loc": ["body", "name"], "msg": "A network with this name already exists"}])
 
-    updated_network = await network_crud.update(db, id, values)
+    updated_network = await network_crud.update(db, network_id, values)
     return updated_network
 
 
-@router.delete("/networks/{id}")
+@router.delete("/networks/{network_id}")
 async def erase_network(
     request: Request,
-    id: int,
+    network_id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["networks:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> None:
-    nested_address = await address_crud.get_all(db, filter_by={"nested_network_id": id})
+    nested_address = await address_crud.get_all(db, filter_by={"nested_network_id": network_id})
     if nested_address:
         raise HTTPException(status_code=403, detail="Cannot delete network with nested addresses")
 
-    await network_crud.delete(db, id)
+    # Check if the network exists
+    network = await network_crud.get(db, network_id)
+    if not network:
+        raise NotFoundException("Network not found")
+
+    await network_crud.delete(db, network_id)
     return {"message": "Network deleted"}
 
 
-@router.get("/networks/{id}/usage", response_model=NetworkUsage)
-async def read_network_usage(request: Request, id: int, db: Annotated[AsyncSession, Depends(async_get_db)]) -> Any:
-    network = await network_crud.get(db, id, True)
+@router.get("/networks/{network_id}/usage", response_model=NetworkUsage)
+async def read_network_usage(
+    request: Request,
+    network_id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["networks:read"])],
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+) -> Any:
+    network = await network_crud.get(db, network_id, True)
 
     if not network:
         raise NotFoundException("Network not found")
@@ -126,13 +144,13 @@ async def read_network_usage(request: Request, id: int, db: Annotated[AsyncSessi
                 exists(
                     select(DynamicPolicySourceFilterAssociation.dynamic_policy_id).where(
                         (DynamicPolicySourceFilterAssociation.dynamic_policy_id == DynamicPolicy.id)
-                        & (DynamicPolicySourceFilterAssociation.network_id == id)
+                        & (DynamicPolicySourceFilterAssociation.network_id == network_id)
                     )
                 ),
                 exists(
                     select(DynamicPolicyDestinationFilterAssociation.dynamic_policy_id).where(
                         (DynamicPolicyDestinationFilterAssociation.dynamic_policy_id == DynamicPolicy.id)
-                        & (DynamicPolicyDestinationFilterAssociation.network_id == id)
+                        & (DynamicPolicyDestinationFilterAssociation.network_id == network_id)
                     )
                 ),
             )
@@ -147,20 +165,20 @@ async def read_network_usage(request: Request, id: int, db: Annotated[AsyncSessi
                 exists(
                     select(PolicyTermSourceNetworkAssociation.policy_term_id).where(
                         (PolicyTermSourceNetworkAssociation.policy_term_id == PolicyTerm.id)
-                        & (PolicyTermSourceNetworkAssociation.network_id == id)
+                        & (PolicyTermSourceNetworkAssociation.network_id == network_id)
                     )
                 ),
                 exists(
                     select(PolicyTermDestinationNetworkAssociation.policy_term_id).where(
                         (PolicyTermDestinationNetworkAssociation.policy_term_id == PolicyTerm.id)
-                        & (PolicyTermDestinationNetworkAssociation.network_id == id)
+                        & (PolicyTermDestinationNetworkAssociation.network_id == network_id)
                     )
                 ),
             )
         )
     )
 
-    networks_stmt = select(NetworkAddress.network_id).distinct().where(NetworkAddress.nested_network_id == id)
+    networks_stmt = select(NetworkAddress.network_id).distinct().where(NetworkAddress.nested_network_id == network_id)
 
     d_result = db.execute(dynamic_policies_stmt)
     p_result = db.execute(policies_stmt)
@@ -180,6 +198,7 @@ async def read_network_usage(request: Request, id: int, db: Annotated[AsyncSessi
 @router.get("/networks/{network_id}/addresses", response_model=Page[NetworkAddressRead])
 async def read_addresses(
     network_id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["networks:read"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
     network_address_filter: NetworkAddressFilter = FilterDepends(NetworkAddressFilter),
 ) -> List:
@@ -194,6 +213,7 @@ async def read_addresses(
 async def write_network_address(
     network_id: int,
     values: NetworkAddressCreate,
+    current_user: Annotated[User, Security(get_current_user, scopes=["networks:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> NetworkAddressRead:
     network = await network_crud.get(db, network_id)
@@ -220,15 +240,19 @@ async def write_network_address(
     return network_address
 
 
-@router.get("/networks/{network_id}/addresses/{id}", response_model=NetworkAddressRead)
+@router.get("/networks/{network_id}/addresses/{address_id}", response_model=NetworkAddressRead)
 async def read_network_address(
-    request: Request, network_id: int, id: int, db: Annotated[AsyncSession, Depends(async_get_db)]
+    request: Request,
+    network_id: int,
+    address_id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["networks:read"])],
+    db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict:
     network = await network_crud.get(db, network_id)
     if network is None:
         raise NotFoundException("Network not found")
     filter_by = {"network_id": network.id}
-    address = await address_crud.get(db, id, filter_by=filter_by)
+    address = await address_crud.get(db, address_id, filter_by=filter_by)
 
     if address is None:
         raise NotFoundException("Network address not found")
@@ -236,14 +260,13 @@ async def read_network_address(
     return address
 
 
-@router.put("/networks/{network_id}/addresses/{id}", response_model=NetworkAddressRead)
-# @cache("{username}_post_cache", resource_id_name="id", pattern_to_invalidate_extra=["{username}_posts:*"])
+@router.put("/networks/{network_id}/addresses/{address_id}", response_model=NetworkAddressRead)
 async def put_network_address(
     request: Request,
     network_id: int,
-    id: int,
+    address_id: int,
     values: NetworkAddressUpdate,
-    # current_user: Annotated[UserRead, Depends(get_current_user)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["networks:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, str]:
     network = await network_crud.get(db, network_id)
@@ -252,7 +275,7 @@ async def put_network_address(
         raise NotFoundException("Network not found")
 
     filter_by = {"network_id": network.id}
-    address = await address_crud.get(db, id, filter_by=filter_by)
+    address = await address_crud.get(db, address_id, filter_by=filter_by)
 
     if address is None:
         raise NotFoundException("Network address not found")
@@ -262,13 +285,12 @@ async def put_network_address(
     return network_address
 
 
-@router.delete("/networks/{network_id}/addresses/{id}")
-# @cache("{username}_post_cache", resource_id_name="id", to_invalidate_extra={"{username}_posts": "{username}"})
+@router.delete("/networks/{network_id}/addresses/{address_id}")
 async def erase_network_address(
     request: Request,
     network_id: int,
-    id: int,
-    # current_user: Annotated[NetworkRead, Depends(get_current_user)],
+    address_id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["networks:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> None:
     network = await network_crud.get(db, network_id)
@@ -277,7 +299,7 @@ async def erase_network_address(
         raise NotFoundException("Network not found")
 
     filter_by = {"network_id": network.id}
-    address = await address_crud.get(db, id, filter_by=filter_by)
+    address = await address_crud.get(db, address_id, filter_by=filter_by)
 
     if address is None:
         raise NotFoundException("Network address not found")

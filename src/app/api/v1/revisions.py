@@ -1,7 +1,7 @@
 import json
 from typing import Annotated, Any, Callable, Union
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Security
 from fastapi.responses import PlainTextResponse
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
@@ -13,6 +13,7 @@ from ...core.config import settings
 from ...core.cruds import deployer_crud, dynamic_policy_crud, policy_crud, revision_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
+from ...core.security import User, get_current_user
 from ...core.utils import queue
 from ...core.utils.dynamic_policy_helpers import fetch_addresses, fetch_networks, fetch_terms
 from ...core.utils.generate import generate_acl_from_policy, get_expanded_terms
@@ -44,6 +45,7 @@ func: Callable
 async def read_revisions(
     request: Request,
     db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["revisions:read"])],
     revision_filter: RevisionFilter = FilterDepends(RevisionFilter),
 ) -> Any:
     query = select(Revision)
@@ -59,6 +61,7 @@ async def read_revisions(
 @router.post("/revisions", response_model=Union[PolicyRevisionRead, DynamicPolicyRevisionRead], status_code=201)
 async def write_revision(
     values: Union[PolicyRevisionCreate, DynamicPolicyRevisionCreate],
+    current_user: Annotated[User, Security(get_current_user, scopes=["revisions:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     # Run tests and check test coverage
@@ -198,7 +201,12 @@ async def write_revision(
 
 
 @router.get("/revisions/{revision_id}", response_model=Union[PolicyRevisionRead, DynamicPolicyRevisionRead])
-async def read_revision(request: Request, revision_id: int, db: Annotated[AsyncSession, Depends(async_get_db)]) -> Any:
+async def read_revision(
+    request: Request,
+    revision_id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["revisions:read"])],
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+) -> Any:
     revision = await revision_crud.get(db, revision_id, load_relations=True)
 
     if revision is None:
@@ -212,6 +220,7 @@ async def update_revision(
     request: Request,
     revision_id: int,
     values: Union[PolicyRevisionCreate, DynamicPolicyRevisionCreate],
+    current_user: Annotated[User, Security(get_current_user, scopes=["revisions:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     updated_revision = await revision_crud.update(db, revision_id, values)
@@ -222,6 +231,7 @@ async def update_revision(
 async def erase_revision(
     request: Request,
     revision_id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["revisions:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     await revision_crud.delete(db, revision_id)
@@ -234,6 +244,7 @@ async def erase_revision(
 async def read_revision_config_raw(
     revision_id: int,
     target_id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["revisions:read"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     """
@@ -256,6 +267,7 @@ async def read_revision_config_raw(
 @router.post("/revisions/{revision_id}/deploy", response_model=Any, status_code=201)
 async def deploy_revision(
     revision_id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["revisions:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     revision: Revision = await revision_crud.get(db, revision_id, load_relations=True)

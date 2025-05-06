@@ -1,6 +1,6 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Security
 from fastapi.exceptions import RequestValidationError
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
@@ -14,11 +14,11 @@ from sqlalchemy.sql import and_
 from ...core.cruds import deployer_crud, target_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
+from ...core.security import User, get_current_user
 from ...filters.deployer import DeployerFilter
 from ...models import Deployer
-from ...models.deployer import DeployerConfig, DeployerGitConfig, DeployerProxmoxNftConfig, DeployerNetmikoConfig
-
-from ...schemas.deployer import DeployerCreate, DeployerRead, DeployerReadBrief, DeployerUpdate, DeployerModeEnum
+from ...models.deployer import DeployerConfig, DeployerGitConfig, DeployerNetmikoConfig, DeployerProxmoxNftConfig
+from ...schemas.deployer import DeployerCreate, DeployerModeEnum, DeployerRead, DeployerReadBrief, DeployerUpdate
 
 router = APIRouter(tags=["deployers"])
 
@@ -27,6 +27,7 @@ router = APIRouter(tags=["deployers"])
 @router.get("/deployers", response_model=Page[DeployerReadBrief])
 async def read_deployers(
     db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["deployers:read"])],
     deployer_filter: DeployerFilter = FilterDepends(DeployerFilter),
 ) -> Any:
     query = select(Deployer)
@@ -39,6 +40,7 @@ async def read_deployers(
 @router.post("/deployers", response_model=DeployerRead, status_code=201)
 async def write_deployer(
     values: DeployerCreate,
+    current_user: Annotated[User, Security(get_current_user, scopes=["deployers:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     # Check if the Deployer name exists
@@ -87,7 +89,11 @@ async def write_deployer(
 
 
 @router.get("/deployers/{id}", response_model=DeployerRead)
-async def read_deployer(id: int, db: Annotated[AsyncSession, Depends(async_get_db)]) -> Any:
+async def read_deployer(
+    id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["deployers:read"])],
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+) -> Any:
     result = await db.execute(
         select(Deployer)
         .options(
@@ -106,10 +112,10 @@ async def read_deployer(id: int, db: Annotated[AsyncSession, Depends(async_get_d
 
 
 @router.put("/deployers/{id}", response_model=DeployerRead)
-# @cache("{username}_post_cache", resource_id_name="id", pattern_to_invalidate_extra=["{username}_posts:*"])
 async def put_deployers(
     id: int,
     values: DeployerUpdate,
+    current_user: Annotated[User, Security(get_current_user, scopes=["deployers:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     deployer = await deployer_crud.get(db, id)
@@ -154,10 +160,9 @@ async def put_deployers(
 
 
 @router.delete("/deployers/{id}")
-# # @cache("{username}_post_cache", resource_id_name="id", to_invalidate_extra={"{username}_posts": "{username}"})
 async def erase_deployer(
     id: int,
-    # current_user: Annotated[NetworkRead, Depends(get_current_user)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["deployers:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     deployer = await deployer_crud.get(db, id)

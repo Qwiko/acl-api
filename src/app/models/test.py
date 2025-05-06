@@ -31,7 +31,7 @@ class Test(Base, TimestampsMixin):
 
     name: Mapped[str] = mapped_column(String)
     comment: Mapped[Optional[str]] = mapped_column(String)
-    
+
     dynamic_policies: Mapped[List["DynamicPolicy"]] = relationship(
         secondary="test_dynamic_policy_association", lazy="selectin", back_populates="tests"
     )

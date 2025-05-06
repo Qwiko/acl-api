@@ -1,7 +1,7 @@
 import asyncio
 from typing import Annotated, Any, Callable, List
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Request, Response, Security
 from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
@@ -15,6 +15,7 @@ from sqlalchemy.sql import and_, exists, or_
 from ...core.cruds import entry_crud, service_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
+from ...core.security import User, get_current_user
 from ...filters.service import ServiceEntryFilter, ServiceFilter
 from ...models import PolicyTerm, Service, ServiceEntry
 from ...models.policy import PolicyTermDestinationServiceAssociation, PolicyTermSourceServiceAssociation
@@ -37,6 +38,7 @@ func: Callable
 @router.get("/services", response_model=Page[ServiceRead])
 async def read_services(
     db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["services:read"])],
     service_filter: ServiceFilter = FilterDepends(ServiceFilter),
 ) -> Any:
     query = select(Service).outerjoin(ServiceEntry, (Service.id == ServiceEntry.service_id))
@@ -50,7 +52,11 @@ async def read_services(
 
 
 @router.post("/services", response_model=ServiceCreated, status_code=201)
-async def write_service(values: ServiceCreate, db: Annotated[AsyncSession, Depends(async_get_db)]) -> dict:
+async def write_service(
+    values: ServiceCreate,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["services:write"])],
+) -> dict:
     # Check if the service name already exists
     found_service = await service_crud.get_all(db, filter_by={"name": values.name})
     if found_service:
@@ -62,7 +68,12 @@ async def write_service(values: ServiceCreate, db: Annotated[AsyncSession, Depen
 
 
 @router.get("/services/{id}", response_model=ServiceRead)
-async def read_service(request: Request, id: int, db: Annotated[AsyncSession, Depends(async_get_db)]) -> dict:
+async def read_service(
+    request: Request,
+    id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["services:read"])],
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+) -> dict:
     result = await db.execute(select(Service).where(Service.id == id).options(selectinload(Service.entries)))
     service = result.scalar_one_or_none()
 
@@ -73,12 +84,11 @@ async def read_service(request: Request, id: int, db: Annotated[AsyncSession, De
 
 
 @router.put("/services/{id}", response_model=ServiceCreated)
-# @cache("{username}_post_cache", resource_id_name="id", pattern_to_invalidate_extra=["{username}_posts:*"])
 async def put_service(
     request: Request,
     id: int,
     values: ServiceUpdate,
-    # current_user: Annotated[ServiceRead, Depends(get_current_user)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["services:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, Any]:
     # Check if the service exists
@@ -99,6 +109,7 @@ async def put_service(
 @router.delete("/services/{id}")
 async def erase_service(
     id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["services:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> None:
     nested_entry = await entry_crud.get_all(db, filter_by={"nested_service_id": id})
@@ -110,7 +121,11 @@ async def erase_service(
 
 
 @router.get("/services/{id}/usage", response_model=ServiceUsage)
-async def read_service_usage(id: int, db: Annotated[AsyncSession, Depends(async_get_db)]) -> Any:
+async def read_service_usage(
+    id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["services:read"])],
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+) -> Any:
     service = await service_crud.get(db, id, True)
 
     if not service:
@@ -156,6 +171,7 @@ async def read_service_usage(id: int, db: Annotated[AsyncSession, Depends(async_
 @router.get("/services/{service_id}/entries", response_model=Page[ServiceEntryRead])
 async def read_service_entries(
     service_id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["services:read"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
     service_entry_filter: ServiceEntryFilter = FilterDepends(ServiceEntryFilter),
 ) -> List:
@@ -171,6 +187,7 @@ async def write_entries(
     request: Request,
     service_id: int,
     values: ServiceEntryCreate,
+    current_user: Annotated[User, Security(get_current_user, scopes=["services:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> ServiceEntryRead:
     service = await service_crud.get(db, service_id)
@@ -206,7 +223,11 @@ async def write_entries(
 
 @router.get("/services/{service_id}/entries/{id}", response_model=ServiceEntryRead)
 async def read_service_entries(
-    request: Request, service_id: int, id: int, db: Annotated[AsyncSession, Depends(async_get_db)]
+    request: Request,
+    service_id: int,
+    id: int,
+    current_user: Annotated[User, Security(get_current_user, scopes=["services:read"])],
+    db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict:
     service = await service_crud.get(db, service_id)
     if service is None:
@@ -227,7 +248,7 @@ async def put_service_entries(
     service_id: int,
     id: int,
     values: ServiceEntryUpdate,
-    # current_user: Annotated[UserRead, Depends(get_current_user)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["services:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, str]:
     service = await service_crud.get(db, service_id)
@@ -247,12 +268,11 @@ async def put_service_entries(
 
 
 @router.delete("/services/{service_id}/entries/{id}")
-# @cache("{username}_post_cache", resource_id_name="id", to_invalidate_extra={"{username}_posts": "{username}"})
 async def erase_service_entries(
     request: Request,
     service_id: int,
     id: int,
-    # current_user: Annotated[serviceRead, Depends(get_current_user)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["services:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> None:
     service = await service_crud.get(db, service_id)

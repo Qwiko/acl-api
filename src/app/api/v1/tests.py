@@ -1,6 +1,6 @@
 from typing import Annotated, Any, Callable
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, Security
 from fastapi.exceptions import RequestValidationError
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
@@ -12,7 +12,9 @@ from sqlalchemy.future import select
 from ...core.cruds import case_crud, dynamic_policy_crud, policy_crud, test_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
+from ...core.security import User, get_current_user
 from ...core.utils.acl_test import run_tests
+from ...core.utils.dynamic_policy_helpers import fetch_addresses, fetch_networks, fetch_terms
 from ...core.utils.generate import get_expanded_terms, get_policy_and_definitions_from_policy
 from ...filters.test import TestCaseFilter, TestFilter
 from ...models import Policy, Test, TestCase
@@ -26,7 +28,6 @@ from ...schemas.test import (
     TestResultRead,
     TestUpdate,
 )
-from ...core.utils.dynamic_policy_helpers import fetch_addresses, fetch_networks, fetch_terms
 
 router = APIRouter(tags=["tests"])
 func: Callable
@@ -35,6 +36,7 @@ func: Callable
 @router.get("/tests", response_model=Page[TestRead])
 async def read_tests(
     db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["tests:read"])],
     test_filter: TestFilter = FilterDepends(TestFilter),
 ) -> Any:
     query = select(Test).outerjoin(TestCase, (Test.id == TestCase.test_id))
@@ -52,6 +54,7 @@ async def write_test(
     request: Request,
     data: TestCreate,
     db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["tests:write"])],
 ) -> Any:
     test = await test_crud.create(db, data)
 
@@ -59,7 +62,12 @@ async def write_test(
 
 
 @router.get("/tests/{id}", response_model=TestRead)
-async def read_test(request: Request, id: int, db: Annotated[AsyncSession, Depends(async_get_db)]) -> dict:
+async def read_test(
+    request: Request,
+    id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["tests:read"])],
+) -> dict:
     test = await test_crud.get(db, id, True)
 
     if not test:
@@ -69,12 +77,11 @@ async def read_test(request: Request, id: int, db: Annotated[AsyncSession, Depen
 
 
 @router.put("/tests/{id}", response_model=TestCreated)
-# @cache("{username}_post_cache", resource_id_name="id", pattern_to_invalidate_extra=["{username}_posts:*"])
 async def put_test(
     request: Request,
     id: int,
     values: TestUpdate,
-    # current_user: Annotated[TestRead, Depends(get_current_user)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["tests:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, Any]:
     updated_test = await test_crud.update(db, id, values)
@@ -86,6 +93,7 @@ async def erase_test(
     request: Request,
     id: int,
     db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["tests:write"])],
 ) -> None:
     await test_crud.delete(db, id)
     return {"message": "Test deleted"}
@@ -98,6 +106,7 @@ async def read_cases(
     response: Response,
     test_id: int,
     db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["tests:read"])],
     case_filter: TestCaseFilter = FilterDepends(TestCaseFilter),
 ) -> Any:
     db_test = await db.execute(select(Test).where(Test.id == test_id))
@@ -117,6 +126,7 @@ async def write_test_case(
     test_id: int,
     values: TestCaseCreate,
     db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["tests:write"])],
 ) -> TestCaseRead:
     test = await test_crud.get(db, test_id)
 
@@ -130,7 +140,11 @@ async def write_test_case(
 
 @router.get("/tests/{test_id}/cases/{id}", response_model=TestCaseRead)
 async def read_test_case(
-    request: Request, test_id: int, id: int, db: Annotated[AsyncSession, Depends(async_get_db)]
+    request: Request,
+    test_id: int,
+    id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["tests:read"])],
 ) -> dict:
     test = await test_crud.get(db, test_id)
     if test is None:
@@ -145,13 +159,12 @@ async def read_test_case(
 
 
 @router.put("/tests/{test_id}/cases/{id}", response_model=TestCaseRead)
-# @cache("{username}_post_cache", resource_id_name="id", pattern_to_invalidate_extra=["{username}_posts:*"])
 async def put_test_case(
     request: Request,
     test_id: int,
     id: int,
     values: TestCaseUpdate,
-    # current_user: Annotated[UserRead, Depends(get_current_user)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["tests:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, str]:
     test = await test_crud.get(db, test_id)
@@ -171,12 +184,11 @@ async def put_test_case(
 
 
 @router.delete("/tests/{test_id}/cases/{id}")
-# @cache("{username}_post_cache", resource_id_name="id", to_invalidate_extra={"{username}_posts": "{username}"})
 async def erase_test_case(
     request: Request,
     test_id: int,
     id: int,
-    # current_user: Annotated[TestRead, Depends(get_current_user)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["tests:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> None:
     test = await test_crud.get(db, test_id)
@@ -198,6 +210,7 @@ async def erase_test_case(
 @router.get("/run_tests", response_model=TestResultRead)
 async def get_tests_run(
     db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[User, Security(get_current_user, scopes=["policies:read", "dynamic_policies:read"])],
     dynamic_policy_id: int = None,
     policy_id: int = None,
 ) -> Any:
@@ -270,7 +283,7 @@ async def get_tests_run(
     not_matched_terms = [term for term in expanded_terms if term.id not in matched_ids]
 
     coverage = round((float(len(list(set(matched_ids)))) / float(len(expanded_terms))), 4)
-    print("coverage:", coverage)
+
     return {
         "tests": all_matches,
         "not_matched_terms": not_matched_terms,

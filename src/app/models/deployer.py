@@ -62,7 +62,7 @@ class DeployerProxmoxNftConfig(DeployerConfig):
 
     host: Mapped[IPvAnyAddress | DNSHostname] = mapped_column(String)
     username: Mapped[str] = mapped_column(String)
-    
+
     password_envvar: Mapped[Optional[str]] = mapped_column(String)
     ssh_key_envvar: Mapped[Optional[str]] = mapped_column(String)
 
@@ -78,7 +78,7 @@ class DeployerNetmikoConfig(DeployerConfig):
 
     host: Mapped[IPvAnyAddress | DNSHostname] = mapped_column(String)
     username: Mapped[str] = mapped_column(String)
-    
+
     password_envvar: Mapped[Optional[str]] = mapped_column(String)
     enable_envvar: Mapped[Optional[str]] = mapped_column(String)  # Enable password
     ssh_key_envvar: Mapped[Optional[str]] = mapped_column(String)
@@ -96,7 +96,7 @@ class DeployerGitConfig(DeployerConfig):
     repo_url: Mapped[str] = mapped_column(String, nullable=False)
     branch: Mapped[str] = mapped_column(String, nullable=False)
     folder_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    
+
     ssh_key_envvar: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     auth_token_envvar: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 

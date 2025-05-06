@@ -22,6 +22,7 @@ class TestCaseFilter(Filter):
         search_model_fields = ["name"]
         search_field_name = "q"
 
+
 class TestFilter(Filter):
     id: Optional[int] = None
     id__in: Optional[list[int]] = None
@@ -33,7 +34,7 @@ class TestFilter(Filter):
     name__like: Optional[str] = None
     name__neq: Optional[str] = None
     cases: Optional[TestCaseFilter] = FilterDepends(with_prefix("cases", TestCaseFilter))
-    
+
     order_by: list[str] = ["id"]
     q: Optional[str] = None
 
@@ -41,5 +42,3 @@ class TestFilter(Filter):
         model = Test
         search_model_fields = ["name"]
         search_field_name = "q"
-
-

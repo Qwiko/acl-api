@@ -26,10 +26,10 @@ class RevisionFilter(Filter):
     comment__ilike: Optional[str] = None
     comment__like: Optional[str] = None
     comment__neq: Optional[str] = None
-    
+
     policy_id: Optional[int] = None
     dynamic_policy_id: Optional[int] = None
-    
+
     configs: Optional[RevisionConfigFilter] = FilterDepends(with_prefix("configs", RevisionConfigFilter))
 
     order_by: list[str] = ["id"]

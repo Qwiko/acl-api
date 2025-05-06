@@ -7,15 +7,16 @@ from ..models import Target
 from pydantic import ValidationInfo, field_validator
 from collections import defaultdict
 
+
 class TargetGeneratorFilter(BaseFilterModel):
     id: Optional[str] = None
     id__in: Optional[list[str]] = None
-    
+
     name: Optional[str] = ""
-    
+
     order_by: list[str] = ["id"]
     q: Optional[str] = ""
-    
+
     # Override functions
     @field_validator("*", mode="before")
     def split_str(cls, value, field: ValidationInfo):
@@ -33,7 +34,7 @@ class TargetGeneratorFilter(BaseFilterModel):
                 return []
             return list(value.split(","))
         return value
-    
+
     @field_validator("*", mode="before", check_fields=False)
     def validate_order_by(cls, value, field: ValidationInfo):
         if field.field_name != cls.Constants.ordering_field_name:
@@ -69,7 +70,8 @@ class TargetGeneratorFilter(BaseFilterModel):
             )
 
         return value
-        
+
+
 class TargetFilter(Filter):
     id: Optional[int] = None
     id__in: Optional[list[int]] = None
@@ -84,7 +86,7 @@ class TargetFilter(Filter):
     generator__ilike: Optional[str] = None
     generator__like: Optional[str] = None
     generator__neq: Optional[str] = None
-    
+
     inet_mode: Optional[str] = None
 
     order_by: list[str] = ["id"]

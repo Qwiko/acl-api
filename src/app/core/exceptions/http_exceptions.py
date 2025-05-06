@@ -6,6 +6,5 @@ from fastcrud.exceptions.http_exceptions import (
     ForbiddenException,
     UnauthorizedException,
     UnprocessableEntityException,
-    DuplicateValueException,
     RateLimitException,
 )
