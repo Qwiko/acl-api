@@ -150,6 +150,6 @@ class DeployerGitConfigRead(BaseModel):
     repo_url: str
     branch: str
     folder_path: Optional[str] = None
-    
+
     ssh_key_envvar: Optional[str] = None
     auth_token_envvar: Optional[str] = None

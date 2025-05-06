@@ -16,6 +16,7 @@ def require_unique(v):
 
 EnsureListUnique = AfterValidator(require_unique)
 
+
 class DNSHostname(str):
     @classmethod
     def validate(cls, value: str) -> str:
@@ -23,14 +24,14 @@ class DNSHostname(str):
             raise TypeError("string required")
 
         if len(value) > 253:
-            raise PydanticCustomError('dns_hostname', 'Hostname too long')
+            raise PydanticCustomError("dns_hostname", "Hostname too long")
 
         hostname_regex = re.compile(
             r"^(?=.{1,253}$)(?!-)[A-Z\d-]{1,63}(?<!-)(\.(?!-)[A-Z\d-]{1,63}(?<!-))*\.?$", re.IGNORECASE
         )
 
         if not hostname_regex.fullmatch(value):
-            raise PydanticCustomError('dns_hostname', 'Invalid DNS hostname')
+            raise PydanticCustomError("dns_hostname", "Invalid DNS hostname")
 
         return value
 
@@ -38,4 +39,5 @@ class DNSHostname(str):
     def __get_pydantic_core_schema__(cls, _source_type, _handler: GetCoreSchemaHandler) -> CoreSchema:
         # Integrate with Pydantic core validation system
         from pydantic_core import core_schema
+
         return core_schema.no_info_plain_validator_function(cls.validate)
