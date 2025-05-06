@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_serializer
 
 # -------------- mixins --------------
 
+
 class TimestampSchema(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
     updated_at: datetime = Field(default=None)

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import PolicyTerm
 
+
 def run_tests(
     policy_dict: dict,
     definitions,
@@ -16,8 +17,6 @@ def run_tests(
     dport="any",
     proto="any",
 ) -> PolicyTerm | None:
-    
-
     # Add temporary target to make FromPolicyDict work
     policy_dict["filters"][0]["header"]["targets"] = {"cisco": "test-filter"}
 

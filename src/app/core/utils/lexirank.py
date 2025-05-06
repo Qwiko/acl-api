@@ -6,8 +6,7 @@ ALPHABET_SIZE = 26
 
 def get_rank_between(first_rank: str, second_rank: str) -> str:
     assert first_rank < second_rank, (
-        f"First position must be lower than second. "
-        f"Got firstRank {first_rank} and secondRank {second_rank}"
+        f"First position must be lower than second. " f"Got firstRank {first_rank} and secondRank {second_rank}"
     )
 
     # Make positions equal in length
@@ -19,7 +18,7 @@ def get_rank_between(first_rank: str, second_rank: str) -> str:
 
     first_position_codes: List[int] = list(map(ord, first_rank))
     second_position_codes: List[int] = list(map(ord, second_rank))
-    
+
     difference = 0
 
     for index in range(len(first_position_codes) - 1, -1, -1):

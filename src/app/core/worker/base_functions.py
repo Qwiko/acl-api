@@ -25,6 +25,7 @@ additional_loggers = [
 
 logger = logging.getLogger("base_functions")
 
+
 async def job_startup(ctx: Worker) -> None:
     """Function to be called before job execution."""
     job = Job(ctx["job_id"], ctx["redis"])
@@ -33,10 +34,9 @@ async def job_startup(ctx: Worker) -> None:
     # Set up logging
     log_stream = StringIO()
     log_handler = logging.StreamHandler(log_stream)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     log_handler.setLevel(logging.INFO)
     log_handler.setFormatter(formatter)
-    
 
     for logger_name in additional_loggers:
         logger_instance = logging.getLogger(logger_name)
@@ -59,7 +59,7 @@ async def job_startup(ctx: Worker) -> None:
     logger.info("Setting job status: running")
     deployment.status = "running"
     await db.commit()
-    
+
     logger.info("Starting function: %s", job_def.function)
 
     ctx["deployment"] = deployment
@@ -79,7 +79,6 @@ async def job_shutdown(ctx: Worker) -> None:
     else:
         logger.error("Job failed, setting job status: failed")
         ctx["deployment"].status = "failed"
-    
 
     # Save the log stream to the database
     ctx["deployment"].output = ctx["log_stream"].getvalue()

@@ -16,6 +16,7 @@ asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 logger = logging.getLogger("deploy_netmiko")
 
+
 async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args, **kwargs) -> Any:
     db = ctx["db"]
 
@@ -118,7 +119,7 @@ async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args,
                 strip_command=False,
             )
             logger.info(output)
-            
+
             output = net_connect.send_command(
                 command_string="\n", expect_string=r"#", read_timeout=60, strip_prompt=False, strip_command=False
             )
@@ -133,9 +134,13 @@ async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args,
                 strip_command=False,
             )
             logger.info(output)
-            
+
             output = net_connect.send_command(
-                command_string="management", expect_string=r"#", read_timeout=60, strip_prompt=False, strip_command=False
+                command_string="management",
+                expect_string=r"#",
+                read_timeout=60,
+                strip_prompt=False,
+                strip_command=False,
             )
             logger.info(output)
         else:

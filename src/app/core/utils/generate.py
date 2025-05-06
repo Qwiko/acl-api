@@ -269,7 +269,7 @@ def get_aerleon_terms(terms: List[PolicyTerm], protocol_map) -> List[dict]:
             protocols = ["tcp", "udp"]
         elif not protocols and term.option == PolicyOptionEnum.TCP_ESTABLISHED:
             protocols = ["tcp"]
-        
+
         if not protocols:
             # Defaults to ip protocol
             terms_arr.append(term_dict)
