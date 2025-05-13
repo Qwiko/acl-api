@@ -66,9 +66,9 @@ async def write_revision(
 ) -> Any:
     # Run tests and check test coverage
     if isinstance(values, DynamicPolicyRevisionCreate):
-        test_dict = await get_tests_run(db=db, dynamic_policy_id=values.dynamic_policy_id)
+        test_dict = await get_tests_run(db=db, dynamic_policy_id=values.dynamic_policy_id, current_user=current_user)
     else:
-        test_dict = await get_tests_run(db=db, policy_id=values.policy_id)
+        test_dict = await get_tests_run(db=db, policy_id=values.policy_id, current_user=current_user)
 
     # Check if some tests have passed = false
     failed_tests = [test for test in test_dict.get("tests") if test.get("passed") is False]
