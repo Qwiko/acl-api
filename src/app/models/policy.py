@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint, func, CheckConstraint
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -38,7 +38,10 @@ class PolicyOptionEnum(str, Enum):
 
 class Policy(Base, TimestampsMixin):
     __tablename__ = "policies"
-
+    __table_args__ = (
+        UniqueConstraint("id", "name", name="uq_policy_name"),
+    )
+    
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
 
     name: Mapped[str] = mapped_column(String)
@@ -119,9 +122,12 @@ class PolicyTermDestinationServiceAssociation(Base):
 class PolicyTerm(Base, TimestampsMixin):
     __tablename__ = "policy_terms"
     __table_args__ = (
-        UniqueConstraint("policy_id", "lex_order", name="uq_policy_lex_order"),
-        UniqueConstraint("policy_id", "name", name="uq_policy_name"),
+        UniqueConstraint("policy_id", "lex_order", name="uq_policy_term_lex_order"),
+        UniqueConstraint("policy_id", "name", name="uq_policy_term_name"),
+        UniqueConstraint("policy_id", "nested_policy_id", name="uq_policy_term_nested"),
+        CheckConstraint("policy_id != nested_policy_id", name="ck_policy_term_nested_not_equal"),
     )
+
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
 
     policy_id: Mapped[int] = mapped_column(ForeignKey("policies.id"), index=True)

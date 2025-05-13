@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, CheckConstraint, UniqueConstraint
 from sqlalchemy.dialects.postgresql import CIDR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql.elements import TextClause
@@ -12,7 +12,10 @@ from ..core.db.database import Base
 
 class Network(Base, SerializeMixin, TimestampsMixin):
     __tablename__ = "networks"
-
+    __table_args__ = (
+        UniqueConstraint("id", "name", name="uq_network_name"),
+    )
+    
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
 
     name: Mapped[str] = mapped_column(String)
@@ -29,6 +32,10 @@ class Network(Base, SerializeMixin, TimestampsMixin):
 
 class NetworkAddress(Base, SerializeMixin, TimestampsMixin):
     __tablename__ = "network_addresses"
+    __table_args__ = (
+        UniqueConstraint("network_id", "nested_network_id", name="uq_network_address_nested"),
+        CheckConstraint("network_id != nested_network_id", name="ck_network_address_nested_not_equal"),
+    )
 
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
 

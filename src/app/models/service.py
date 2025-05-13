@@ -1,6 +1,6 @@
 from typing import Optional, List
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, UniqueConstraint, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy_mixins.timestamp import TimestampsMixin
 
@@ -9,7 +9,10 @@ from ..core.db.database import Base
 
 class Service(Base, TimestampsMixin):
     __tablename__ = "services"
-
+    __table_args__ = (
+        UniqueConstraint("id", "name", name="uq_service_name"),
+    )
+    
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
 
     name: Mapped[str] = mapped_column(String)
@@ -26,6 +29,10 @@ class Service(Base, TimestampsMixin):
 
 class ServiceEntry(Base, TimestampsMixin):
     __tablename__ = "service_entries"
+    __table_args__ = (
+        UniqueConstraint("service_id", "nested_service_id", name="uq_service_entry_nested"),
+        CheckConstraint("service_id != nested_service_id", name="ck_service_entry_nested_not_equal"),
+    )
 
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
 
