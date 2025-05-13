@@ -168,7 +168,7 @@ async def write_policy_term(
             .where(PolicyTerm.policy_id == policy_id)
         )
         if nested_term.scalars().all():
-            raise RequestValidationError([{"loc": ["body", "nested_policy_id"], "msg": "Nested policy not found"}])
+            raise RequestValidationError([{"loc": ["body", "nested_policy_id"], "msg": "Nested policy already exists"}])
 
     # Get existing positions
     result = await db.execute(
@@ -246,19 +246,6 @@ async def write_policy_term(
         values,
         extra_data,
     )
-    # # Check for duplicate use of exactly the same term
-    # if policy_term_create.generator:
-    #     generator = policy_term_create.generator
-    #     filter_name = policy_term_create.filter_name
-    #     db_policy_term_dup = await crud_policy_terms.get(
-    #         db=db, schema_to_select=PolicyTermRead, policy_id=policy_id, generator=generator, filter_name=filter_name
-    #     )
-    #     if db_policy_term_dup:
-    #         raise ForbiddenException(
-    #             f"Cannot use generator {generator} and filter_name {filter_name}, is already used in this policy"
-    #         )
-
-    # created_policy_term: PolicyTermRead = await crud_policy_terms.create(db=db, object=policy_term_create)
 
     return policy_term
 
@@ -297,11 +284,29 @@ async def put_policy_terms(
     if policy is None:
         raise NotFoundException("Policy not found")
 
-    filter_by = {"policy_id": policy.id}
-    term = await term_crud.get(db, id, filter_by=filter_by)
+    term = await term_crud.get(db, id, filter_by={"policy_id": policy.id})
 
     if term is None:
         raise NotFoundException("Term not found")
+
+    if [term.name for term in policy.terms if term.name == values.name]:
+        raise RequestValidationError([{"loc": ["body", "name"], "msg": "A term with this name already exists"}])
+
+    # Check if the nested policy exists
+    if isinstance(values, PolicyTermNestedUpdate):
+        nested_policy = await policy_crud.get(db, values.nested_policy_id)
+        if not nested_policy:
+            raise RequestValidationError([{"loc": ["body", "nested_policy_id"], "msg": "Nested policy not found"}])
+
+        # Check if the nested policy is already being used in another term
+        nested_term = await db.execute(
+            select(PolicyTerm)
+            .where(PolicyTerm.nested_policy_id == values.nested_policy_id)
+            .where(PolicyTerm.policy_id == policy_id)
+        )
+        if nested_term.scalars().all():
+            raise RequestValidationError([{"loc": ["body", "nested_policy_id"], "msg": "Nested policy already exists"}])
+    
 
     # Get existing positions
     result = await db.execute(
