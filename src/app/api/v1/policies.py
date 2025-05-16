@@ -250,11 +250,11 @@ async def write_policy_term(
     return policy_term
 
 
-@router.get("/policies/{policy_id}/terms/{id}", response_model=Union[PolicyTermRead, PolicyTermNestedRead])
+@router.get("/policies/{policy_id}/terms/{term_id}", response_model=Union[PolicyTermRead, PolicyTermNestedRead])
 async def read_policy_term(
     request: Request,
     policy_id: int,
-    id: int,
+    term_id: int,
     current_user: Annotated[User, Security(get_current_user, scopes=["policies:read"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
@@ -262,7 +262,7 @@ async def read_policy_term(
     if policy is None:
         raise NotFoundException("Policy not found")
 
-    policy_term = await term_crud.get(db, id, load_relations=True, filter_by={"policy_id": policy_id})
+    policy_term = await term_crud.get(db, term_id, load_relations=True, filter_by={"policy_id": policy_id})
 
     if policy_term is None:
         raise NotFoundException("Term not found")
@@ -270,11 +270,11 @@ async def read_policy_term(
     return policy_term
 
 
-@router.put("/policies/{policy_id}/terms/{id}", response_model=Union[PolicyTermReadBrief, PolicyTermNestedReadBrief])
+@router.put("/policies/{policy_id}/terms/{term_id}", response_model=Union[PolicyTermReadBrief, PolicyTermNestedReadBrief])
 async def put_policy_terms(
     request: Request,
     policy_id: int,
-    id: int,
+    term_id: int,
     values: Union[PolicyTermUpdate, PolicyTermNestedUpdate],
     current_user: Annotated[User, Security(get_current_user, scopes=["policies:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
@@ -284,12 +284,12 @@ async def put_policy_terms(
     if policy is None:
         raise NotFoundException("Policy not found")
 
-    term = await term_crud.get(db, id, filter_by={"policy_id": policy.id})
+    term = await term_crud.get(db, term_id, filter_by={"policy_id": policy.id})
 
     if term is None:
         raise NotFoundException("Term not found")
 
-    if [term.name for term in policy.terms if term.name == values.name]:
+    if [term.name for term in policy.terms if term.id != term_id and term.name == values.name]:
         raise RequestValidationError([{"loc": ["body", "name"], "msg": "A term with this name already exists"}])
 
     # Check if the nested policy exists
@@ -298,14 +298,19 @@ async def put_policy_terms(
         if not nested_policy:
             raise RequestValidationError([{"loc": ["body", "nested_policy_id"], "msg": "Nested policy not found"}])
 
-        # Check if the nested policy is already being used in another term
-        nested_term = await db.execute(
-            select(PolicyTerm)
-            .where(PolicyTerm.nested_policy_id == values.nested_policy_id)
-            .where(PolicyTerm.policy_id == policy_id)
-        )
-        if nested_term.scalars().all():
-            raise RequestValidationError([{"loc": ["body", "nested_policy_id"], "msg": "Nested policy already exists"}])
+        # Need to write tests for this first.
+        # Need to have where id != term_id
+        # TODO
+        # Change to term_id in url as well
+
+        # # Check if the nested policy is already being used in another term
+        # nested_term = await db.execute(
+        #     select(PolicyTerm)
+        #     .where(PolicyTerm.nested_policy_id == values.nested_policy_id)
+        #     .where(PolicyTerm.policy_id == policy_id)
+        # )
+        # if nested_term.scalars().all():
+        #     raise RequestValidationError([{"loc": ["body", "nested_policy_id"], "msg": "Nested policy already exists"}])
     
 
     # Get existing positions
@@ -381,11 +386,11 @@ async def put_policy_terms(
     return term
 
 
-@router.delete("/policies/{policy_id}/terms/{id}")
+@router.delete("/policies/{policy_id}/terms/{term_id}")
 async def erase_policy_term(
     request: Request,
     policy_id: int,
-    id: int,
+    term_id: int,
     current_user: Annotated[User, Security(get_current_user, scopes=["policies:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
@@ -395,7 +400,7 @@ async def erase_policy_term(
         raise NotFoundException("Policy not found")
 
     filter_by = {"policy_id": policy.id}
-    term = await term_crud.get(db, id, filter_by=filter_by)
+    term = await term_crud.get(db, term_id, filter_by=filter_by)
 
     if term is None:
         raise NotFoundException("Term not found")
