@@ -237,14 +237,16 @@ async def erase_revision(
     await revision_crud.delete(db, revision_id)
     return {"message": "Revision deleted"}
 
+# TODO
+# Add some other auth mechanic for network equipment to use.
 
 @router.get(
     "/revisions/{revision_id}/raw_config/{target_id}", response_class=PlainTextResponse
-)  # , response_model=Response)
+)
 async def read_revision_config_raw(
     revision_id: int,
     target_id: int,
-    current_user: Annotated[User, Security(get_current_user, scopes=["revisions:read"])],
+    #current_user: Annotated[User, Security(get_current_user, scopes=["revisions:read"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     """
