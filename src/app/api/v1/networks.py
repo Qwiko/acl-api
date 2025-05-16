@@ -26,6 +26,7 @@ from ...schemas.network import (
     NetworkCreate,
     NetworkCreated,
     NetworkRead,
+    NetworkReadBrief,
     NetworkUpdate,
     NetworkUsage,
 )
@@ -35,13 +36,13 @@ router = APIRouter(tags=["networks"])
 func: Callable
 
 
-@router.get("/networks", response_model=Page[NetworkRead])
+@router.get("/networks", response_model=Page[NetworkReadBrief])
 async def read_networks(
     current_user: Annotated[User, Security(get_current_user, scopes=["networks:read"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
     network_filter: NetworkFilter = FilterDepends(NetworkFilter),
 ) -> Any:
-    query = select(Network).outerjoin(NetworkAddress, (Network.id == NetworkAddress.network_id))
+    query = select(Network)#.outerjoin(NetworkAddress, (Network.id == NetworkAddress.network_id))
     query = network_filter.filter(query)
     query = network_filter.sort(query)
 
@@ -274,11 +275,18 @@ async def put_network_address(
     if network is None:
         raise NotFoundException("Network not found")
 
-    filter_by = {"network_id": network.id}
-    address = await address_crud.get(db, address_id, filter_by=filter_by)
+    address = await address_crud.get(db, address_id, filter_by={"network_id": network.id})
 
     if address is None:
         raise NotFoundException("Network address not found")
+    
+    # Check if the nested address exists
+    if values.nested_network_id:
+        nested_network = await network_crud.get(db, values.nested_network_id)
+        if nested_network is None:
+            raise RequestValidationError([{"loc": ["body", "nested_network_id"], "msg": "Nested network not found"}])
+
+    # TODO Check if the address already exist, duplicates are not accepted.
 
     network_address = await address_crud.update(db, address.id, values)
 
