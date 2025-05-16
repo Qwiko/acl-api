@@ -374,6 +374,7 @@ async def generate_acl_from_policy(
     filename = configs.keys()[0]
     config = configs[filename]
 
+    #nftables hack
     if target.generator == "nftables":
         config = config.replace("table inet filtering_policies", f"table bridge {policy.valid_name}")
         config = config.replace(
@@ -381,6 +382,10 @@ async def generate_acl_from_policy(
         )
         # Temphack
         config = config.replace('"drop', '" drop')
+        
+    # Nexushack
+    if target.generator == "cisconx":
+        config = config.replace(' remark "$Date:$"', ' statistics per-entry\n remark "$Date:$"')
 
     # Returning config, filter_name and filename
     return config, policy.valid_name, filename
