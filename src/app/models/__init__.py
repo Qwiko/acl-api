@@ -5,5 +5,5 @@ from .network import Network, NetworkAddress
 from .policy import Policy, PolicyTerm
 from .revision import Revision, RevisionConfig
 from .service import Service, ServiceEntry
-from .target import Target
+from .target import Target, TargetReplacement
 from .test import Test, TestCase

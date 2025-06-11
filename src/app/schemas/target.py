@@ -39,7 +39,7 @@ class TargetRead(TimestampSchema, TargetBase):
         List[PositiveInt], Field(serialization_alias="dynamic_policies", default_factory=list)
     ]
     deployers_ids: Annotated[List[PositiveInt], Field(serialization_alias="deployers", default_factory=list)]
-
+    replacements: Annotated[List["TargetReplacement"], Field(default_factory=list)]
 
 class TargetReadBrief(TimestampSchema, TargetBase):
     id: int
@@ -53,11 +53,17 @@ class TargetCreate(TargetBase):
     policies: Annotated[List[PositiveInt], Field(default_factory=list), EnsureListUnique]
     dynamic_policies: Annotated[List[PositiveInt], Field(default_factory=list), EnsureListUnique]
 
+    replacements: Annotated[List["TargetReplacement"], Field(default_factory=list)]
 
 class TargetUpdate(TargetBase):
     policies: Annotated[List[PositiveInt], Field(default_factory=list), EnsureListUnique]
     dynamic_policies: Annotated[List[PositiveInt], Field(default_factory=list), EnsureListUnique]
 
+    replacements: Annotated[List["TargetReplacement"], Field(default_factory=list)]
 
 class TargetDelete(TargetBase):
     pass
+
+class TargetReplacement(BaseModel):
+    pattern: str | None = ""
+    replacement: str | None = ""

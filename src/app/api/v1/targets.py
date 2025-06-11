@@ -16,7 +16,7 @@ from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
 from ...core.security import User, get_current_user
 from ...filters.target import TargetFilter, TargetGeneratorFilter
-from ...models import Target
+from ...models import Target, TargetReplacement
 from ...schemas.target import TargetCreate, TargetRead, TargetUpdate
 from .dynamic_policies import dynamic_policy_crud
 from .policies import policy_crud
@@ -87,8 +87,11 @@ async def write_target(
     )
     policies = await policy_crud.get_all(db, load_relations=False, filter_by={"id": values.policies})
 
+    replacements = values.replacements
+
     del values.dynamic_policies
     del values.policies
+    del values.replacements
 
     target = await target_crud.create(
         db,
@@ -97,6 +100,7 @@ async def write_target(
 
     target.dynamic_policies = dynamic_policies
     target.policies = policies
+    target.replacements = [TargetReplacement(target=target, **replacement.model_dump()) for replacement in replacements]
 
     await db.commit()
     await db.refresh(target)
@@ -138,8 +142,11 @@ async def put_targets(
     )
     policies = await policy_crud.get_all(db, load_relations=False, filter_by={"id": values.policies})
 
-    del values.policies
+    replacements = values.replacements
+
     del values.dynamic_policies
+    del values.policies
+    del values.replacements
 
     target = await target_crud.update(
         db,
@@ -149,11 +156,13 @@ async def put_targets(
 
     target.dynamic_policies = dynamic_policies
     target.policies = policies
+    target.replacements = [TargetReplacement(target=target, **replacement.model_dump()) for replacement in replacements]
 
     await db.commit()
     await db.refresh(target)
 
     return target
+
 
 
 @router.delete("/targets/{id}")

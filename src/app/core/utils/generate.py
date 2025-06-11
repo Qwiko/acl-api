@@ -1,3 +1,4 @@
+import re
 from ipaddress import ip_network
 from typing import Any, List, Tuple
 
@@ -373,6 +374,11 @@ async def generate_acl_from_policy(
 
     filename = configs.keys()[0]
     config = configs[filename]
+    
+    # Run all regex replacements on the config
+    for replacement in target.replacements:
+        config = re.sub(replacement.pattern, replacement.replacement, config, flags=re.MULTILINE)
+
 
     #nftables hack
     if target.generator == "nftables":
@@ -382,10 +388,6 @@ async def generate_acl_from_policy(
         )
         # Temphack
         config = config.replace('"drop', '" drop')
-        
-    # Nexushack
-    if target.generator == "cisconx":
-        config = config.replace(' remark "$Date:$"', ' statistics per-entry\n remark "$Date:$"')
 
     # Returning config, filter_name and filename
     return config, policy.valid_name, filename
