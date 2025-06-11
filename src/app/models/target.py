@@ -35,7 +35,7 @@ class TargetReplacement(Base):
     
     target_id: Mapped[int] = mapped_column(ForeignKey("targets.id"), init=False)
     target: Mapped["Target"] = relationship(
-        "Target", foreign_keys=[target_id], back_populates="replacements", single_parent=True
+        "Target", foreign_keys=[target_id], back_populates="replacements"
     )
     
     pattern: Mapped[str] = mapped_column(String, default="", nullable=False)
@@ -78,7 +78,7 @@ class Target(Base, TimestampsMixin):
         foreign_keys="TargetReplacement.target_id",
         lazy="selectin",
         back_populates="target",
-        cascade="all, delete",
+        cascade="all, delete-orphan",
         init=False,
     )
 
