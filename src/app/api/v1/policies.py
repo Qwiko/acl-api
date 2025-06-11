@@ -59,7 +59,7 @@ async def write_policy(
     if found_policy:
         raise RequestValidationError([{"loc": ["body", "name"], "msg": "A policy with this name already exists"}])
 
-    policy = await policy_crud.create(db, values, {"targets": []})
+    policy = await policy_crud.create(db, values)
     return policy
 
 
