@@ -57,8 +57,16 @@ def format_react_admin_errors(exc: RequestValidationError):
 
     for error in exc.errors():
         loc = error["loc"]
-        field = loc[-1] if len(loc) > 1 else "root"
+
+        if loc[0] == "body" and len(loc) > 3 and type(loc[2]) is int:
+            # This is a nested field in a list, e.g. "body" -> "terms[0].nested_policy_id"
+            field = f"{loc[1]}[{loc[2]}].{loc[-1]}"
+        elif len(loc) > 1:
+            field = loc[-1]
+        else:
+            field = "root"
         msg = error["msg"]
+        print(error, loc, field, msg)
 
         if field == "root":
             errors.setdefault("root", {})["serverError"] = msg

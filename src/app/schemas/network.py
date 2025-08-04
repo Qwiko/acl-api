@@ -1,7 +1,7 @@
 from typing import Annotated, List
 from typing_extensions import Self
 
-from pydantic import BaseModel, Field, model_validator, PositiveInt
+from pydantic import BaseModel, Field, model_validator, PositiveInt, field_validator
 from pydantic.networks import IPvAnyNetwork
 
 from ..core.schemas import TimestampSchema
@@ -13,7 +13,7 @@ class NetworkBase(BaseModel):
 
 class NetworkRead(TimestampSchema, NetworkBase):
     id: int
-    addresses: List["NetworkAddressReadBrief"]
+    addresses: List["NetworkAddressRead"]
 
 
 class NetworkReadBrief(NetworkBase):
@@ -22,14 +22,15 @@ class NetworkReadBrief(NetworkBase):
 
 class NetworkCreated(TimestampSchema, NetworkBase):
     id: int
+    addresses: List["NetworkAddressCreate"] = Field(default_factory=list)
 
 
 class NetworkCreate(NetworkBase):
-    pass
+    addresses: List["NetworkAddressCreate"] = Field(default_factory=list)
 
 
 class NetworkUpdate(NetworkBase):
-    pass
+    addresses: List["NetworkAddressUpdate"] = Field(default_factory=list)
 
 
 class NetworkDelete(NetworkBase):
@@ -65,14 +66,20 @@ class NetworkAddressBase(BaseModel):
 
         return self
 
+    # Save address as string to db.
+    @field_validator("address", mode="after")
+    @classmethod
+    def validate_address(cls, v):
+        # Convert to string to save to db.
+        return str(v)
+
 
 class NetworkAddressRead(TimestampSchema, NetworkAddressBase):
-    id: int
-    network_id: int
+    pass
 
 
 class NetworkAddressReadBrief(NetworkAddressBase):
-    id: int
+    pass
 
 
 class NetworkAddressCreate(NetworkAddressBase):
@@ -80,8 +87,4 @@ class NetworkAddressCreate(NetworkAddressBase):
 
 
 class NetworkAddressUpdate(NetworkAddressBase):
-    pass
-
-
-class NetworkAddressDelete(NetworkAddressBase):
     pass

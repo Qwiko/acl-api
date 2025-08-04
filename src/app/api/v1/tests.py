@@ -5,11 +5,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
-from sqlalchemy import func
+from sqlalchemy import func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...core.cruds import case_crud, dynamic_policy_crud, policy_crud, test_crud
+from ...core.cruds import dynamic_policy_crud, policy_crud, test_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
 from ...core.security import User, get_current_user
@@ -52,23 +52,37 @@ async def read_tests(
 @router.post("/tests", response_model=TestCreated, status_code=201)
 async def write_test(
     request: Request,
-    data: TestCreate,
+    values: TestCreate,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[User, Security(get_current_user, scopes=["tests:write"])],
 ) -> Any:
-    test = await test_crud.create(db, data)
+    # Check if the test name already exists
+    found_test = await test_crud.get_all(db, filter_by={"name": values.name})
+    if found_test:
+        raise RequestValidationError([{"loc": ["body", "name"], "msg": "A service with this name already exists"}])
+
+    cases = values.cases or []
+    del values.cases
+
+    test = Test(**values.model_dump())
+
+    test.cases = [TestCase(**case.model_dump(), test=test, test_id=test.id) for case in cases]
+
+    db.add(test)
+    await db.commit()
 
     return test
 
 
-@router.get("/tests/{id}", response_model=TestRead)
+@router.get("/tests/{test_id}", response_model=TestRead)
 async def read_test(
     request: Request,
-    id: int,
+    test_id: int,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[User, Security(get_current_user, scopes=["tests:read"])],
 ) -> dict:
-    test = await test_crud.get(db, id, True)
+    result = await db.execute(select(Test).where(Test.id == test_id))
+    test = result.unique().scalars().one_or_none()
 
     if not test:
         raise NotFoundException("Test not found")
@@ -76,135 +90,53 @@ async def read_test(
     return test
 
 
-@router.put("/tests/{id}", response_model=TestCreated)
+@router.put("/tests/{test_id}", response_model=TestCreated)
 async def put_test(
     request: Request,
-    id: int,
+    test_id: int,
     values: TestUpdate,
     current_user: Annotated[User, Security(get_current_user, scopes=["tests:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, Any]:
-    updated_test = await test_crud.update(db, id, values)
-    return updated_test
+    # Check if the test exists
+    result = await db.execute(select(Test).where(Test.id == test_id))
+    test = result.unique().scalars().one_or_none()
+    if not test:
+        raise NotFoundException("Test not found")
+
+    # Check if the test name already exists
+    result = await db.execute(select(Test).where(and_(Test.name == values.name, Test.id.notin_([test_id]))))
+    existing_test = result.unique().scalars().one_or_none()
+    if existing_test:
+        raise RequestValidationError([{"loc": ["body", "name"], "msg": "A test with this name already exists"}])
+
+    cases = values.cases or []
+    del values.cases
+
+    # Update the existing test
+    for k, v in values.model_dump(exclude_unset=True).items():
+        setattr(test, k, v)
+
+    # Clear existing cases and add new ones
+    test.cases.clear()
+    for case in cases:
+        new_case = TestCase(**case.model_dump(), test=test, test_id=test.id)
+        test.cases.append(new_case)
+
+    await db.commit()
+    await db.refresh(test)
+    return test
 
 
-@router.delete("/tests/{id}")
+@router.delete("/tests/{test_id}")
 async def erase_test(
     request: Request,
-    id: int,
+    test_id: int,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[User, Security(get_current_user, scopes=["tests:write"])],
 ) -> None:
-    await test_crud.delete(db, id)
+    await test_crud.delete(db, test_id)
     return {"message": "Test deleted"}
-
-
-# TestCase
-@router.get("/tests/{test_id}/cases", response_model=Page[TestCaseRead])
-async def read_cases(
-    request: Request,
-    response: Response,
-    test_id: int,
-    db: Annotated[AsyncSession, Depends(async_get_db)],
-    current_user: Annotated[User, Security(get_current_user, scopes=["tests:read"])],
-    case_filter: TestCaseFilter = FilterDepends(TestCaseFilter),
-) -> Any:
-    db_test = await db.execute(select(Test).where(Test.id == test_id))
-    if db_test is None:
-        raise NotFoundException("Test not found")
-
-    query = select(TestCase).where(TestCase.test_id == test_id)
-    query = case_filter.filter(query)
-    query = case_filter.sort(query)
-
-    return await paginate(db, query)
-
-
-@router.post("/tests/{test_id}/cases", response_model=TestCaseRead, status_code=201)
-async def write_test_case(
-    request: Request,
-    test_id: int,
-    values: TestCaseCreate,
-    db: Annotated[AsyncSession, Depends(async_get_db)],
-    current_user: Annotated[User, Security(get_current_user, scopes=["tests:write"])],
-) -> TestCaseRead:
-    test = await test_crud.get(db, test_id)
-
-    if test is None:
-        raise NotFoundException("Test not found")
-
-    test_case = await case_crud.create(db, values, {"test_id": test.id, "test": test})
-
-    return test_case
-
-
-@router.get("/tests/{test_id}/cases/{id}", response_model=TestCaseRead)
-async def read_test_case(
-    request: Request,
-    test_id: int,
-    id: int,
-    db: Annotated[AsyncSession, Depends(async_get_db)],
-    current_user: Annotated[User, Security(get_current_user, scopes=["tests:read"])],
-) -> dict:
-    test = await test_crud.get(db, test_id)
-    if test is None:
-        raise NotFoundException("Test not found")
-    filter_by = {"test_id": test.id}
-    case = await case_crud.get(db, id, filter_by=filter_by)
-
-    if case is None:
-        raise NotFoundException("Test case not found")
-
-    return case
-
-
-@router.put("/tests/{test_id}/cases/{id}", response_model=TestCaseRead)
-async def put_test_case(
-    request: Request,
-    test_id: int,
-    id: int,
-    values: TestCaseUpdate,
-    current_user: Annotated[User, Security(get_current_user, scopes=["tests:write"])],
-    db: Annotated[AsyncSession, Depends(async_get_db)],
-) -> dict[str, str]:
-    test = await test_crud.get(db, test_id)
-
-    if test is None:
-        raise NotFoundException("Test not found")
-
-    filter_by = {"test_id": test.id}
-    case = await case_crud.get(db, id, filter_by=filter_by)
-
-    if case is None:
-        raise NotFoundException("Test case not found")
-
-    test_case = await case_crud.update(db, case.id, values)
-
-    return test_case
-
-
-@router.delete("/tests/{test_id}/cases/{id}")
-async def erase_test_case(
-    request: Request,
-    test_id: int,
-    id: int,
-    current_user: Annotated[User, Security(get_current_user, scopes=["tests:write"])],
-    db: Annotated[AsyncSession, Depends(async_get_db)],
-) -> None:
-    test = await test_crud.get(db, test_id)
-
-    if test is None:
-        raise NotFoundException("Test not found")
-
-    filter_by = {"test_id": test.id}
-    case = await case_crud.get(db, id, filter_by=filter_by)
-
-    if case is None:
-        raise NotFoundException("Test case not found")
-
-    await case_crud.delete(db, case.id)
-
-    return {"message": "Test case deleted"}
 
 
 @router.get("/run_tests", response_model=TestResultRead)

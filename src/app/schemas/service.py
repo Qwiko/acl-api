@@ -21,14 +21,15 @@ class ServiceReadBrief(ServiceBase):
 
 class ServiceCreated(TimestampSchema, ServiceBase):
     id: int
+    entries: List["ServiceEntryReadBrief"]
 
 
 class ServiceCreate(ServiceBase):
-    pass
+    entries: List["ServiceEntryCreate"] = Field(default_factory=list)
 
 
 class ServiceUpdate(ServiceBase):
-    pass
+    entries: List["ServiceEntryUpdate"] = Field(default_factory=list)
 
 
 class ServiceDelete(ServiceBase):
@@ -107,12 +108,12 @@ class ServiceEntryBase(BaseModel):
 
 
 class ServiceEntryRead(TimestampSchema, ServiceEntryBase):
-    id: int
+    # id: int
     service_id: int
 
 
 class ServiceEntryReadBrief(ServiceEntryBase):
-    id: int
+    pass
 
 
 class ServiceEntryCreate(ServiceEntryBase):

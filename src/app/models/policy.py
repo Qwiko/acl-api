@@ -38,10 +38,8 @@ class PolicyOptionEnum(str, Enum):
 
 class Policy(Base, TimestampsMixin):
     __tablename__ = "policies"
-    __table_args__ = (
-        UniqueConstraint("id", "name", name="uq_policy_name"),
-    )
-    
+    __table_args__ = (UniqueConstraint("id", "name", name="uq_policy_name"),)
+
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
 
     name: Mapped[str] = mapped_column(String)
@@ -72,9 +70,8 @@ class Policy(Base, TimestampsMixin):
 
     terms: Mapped[List["PolicyTerm"]] = relationship(
         foreign_keys="PolicyTerm.policy_id",
-        order_by="PolicyTerm.lex_order",
         back_populates="policy",
-        cascade="all, delete",
+        cascade="all, delete-orphan",
         lazy="joined",
         init=False,
     )
@@ -122,7 +119,6 @@ class PolicyTermDestinationServiceAssociation(Base):
 class PolicyTerm(Base, TimestampsMixin):
     __tablename__ = "policy_terms"
     __table_args__ = (
-        UniqueConstraint("policy_id", "lex_order", name="uq_policy_term_lex_order"),
         UniqueConstraint("policy_id", "name", name="uq_policy_term_name"),
         UniqueConstraint("policy_id", "nested_policy_id", name="uq_policy_term_nested"),
         CheckConstraint("policy_id != nested_policy_id", name="ck_policy_term_nested_not_equal"),
@@ -130,28 +126,27 @@ class PolicyTerm(Base, TimestampsMixin):
 
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
 
-    policy_id: Mapped[int] = mapped_column(ForeignKey("policies.id"), index=True)
-    policy: Mapped["Policy"] = relationship(
-        foreign_keys=[policy_id], back_populates="terms", single_parent=True, lazy="selectin"
+    policy_id: Mapped[int] = mapped_column(
+        ForeignKey("policies.id"),
+        index=True,
     )
-
-    lex_order: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    policy: Mapped["Policy"] = relationship(foreign_keys=[policy_id], back_populates="terms", lazy="selectin")
 
     name: Mapped[str] = mapped_column(String)
 
-    source_networks: Mapped[List["Network"]] = relationship(
+    source_networks: Mapped[Optional[List["Network"]]] = relationship(
         secondary="policy_term_source_network_association", lazy="selectin"
     )
 
-    destination_networks: Mapped[List["Network"]] = relationship(
+    destination_networks: Mapped[Optional[List["Network"]]] = relationship(
         secondary="policy_term_destination_network_association", lazy="selectin"
     )
 
-    source_services: Mapped[List["Service"]] = relationship(
+    source_services: Mapped[Optional[List["Service"]]] = relationship(
         secondary="policy_term_source_service_association", lazy="selectin"
     )
 
-    destination_services: Mapped[List["Service"]] = relationship(
+    destination_services: Mapped[Optional[List["Service"]]] = relationship(
         secondary="policy_term_destination_service_association", lazy="selectin"
     )
 
@@ -166,19 +161,6 @@ class PolicyTerm(Base, TimestampsMixin):
     nested_policy_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policies.id"), default=None)
 
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-
-    @hybrid_property
-    def position(self) -> None:
-        if not self.policy or not self.policy.terms:
-            return 0  # If the policy or terms are not loaded, return a default position
-
-        sorted_terms = sorted(self.policy.terms, key=lambda term: term.lex_order)
-        return sorted_terms.index(self) + 1  # 1-based index
-
-    @position.expression
-    def position(cls) -> int:
-        """This enables ranking in SQL queries."""
-        return func.row_number().over(order_by=cls.lex_order)
 
     @property
     def valid_name(self) -> str:

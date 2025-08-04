@@ -42,7 +42,7 @@ class Test(Base, TimestampsMixin):
     cases: Mapped[List["TestCase"]] = relationship(
         foreign_keys="TestCase.test_id",
         back_populates="test",
-        cascade="all, delete",
+        cascade="all, delete-orphan",
         lazy="joined",
         init=False,
     )
@@ -62,9 +62,7 @@ class TestCase(Base, TimestampsMixin):
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
 
     test_id: Mapped[int] = mapped_column(ForeignKey("tests.id"), index=True)
-    test: Mapped["Test"] = relationship(
-        foreign_keys=[test_id], back_populates="cases", single_parent=True, lazy="selectin"
-    )
+    test: Mapped["Test"] = relationship(foreign_keys=[test_id], back_populates="cases", lazy="selectin")
 
     name: Mapped[str] = mapped_column(String)
 

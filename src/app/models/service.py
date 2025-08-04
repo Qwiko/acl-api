@@ -9,10 +9,8 @@ from ..core.db.database import Base
 
 class Service(Base, TimestampsMixin):
     __tablename__ = "services"
-    __table_args__ = (
-        UniqueConstraint("id", "name", name="uq_service_name"),
-    )
-    
+    __table_args__ = (UniqueConstraint("id", "name", name="uq_service_name"),)
+
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
 
     name: Mapped[str] = mapped_column(String)
@@ -21,7 +19,7 @@ class Service(Base, TimestampsMixin):
         "ServiceEntry",
         foreign_keys="ServiceEntry.service_id",
         back_populates="service",
-        cascade="all, delete",
+        cascade="all, delete-orphan",
         lazy="selectin",
         init=False,
     )
@@ -36,12 +34,15 @@ class ServiceEntry(Base, TimestampsMixin):
 
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
 
-    service_id: Mapped[int] = mapped_column(ForeignKey("services.id"))
+    service_id: Mapped[int] = mapped_column(
+        ForeignKey("services.id"),
+        index=True,
+    )
 
     protocol: Mapped[Optional[str]] = mapped_column(String)
     port: Mapped[Optional[str]] = mapped_column(String)
 
-    service: Mapped["Service"] = relationship(foreign_keys=[service_id], back_populates="entries", single_parent=True)
+    service: Mapped["Service"] = relationship(foreign_keys=[service_id], back_populates="entries")
 
     nested_service_id: Mapped[Optional[int]] = mapped_column(ForeignKey("services.id"))
 

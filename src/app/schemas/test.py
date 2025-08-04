@@ -36,10 +36,14 @@ class TestCreate(TestBase):
     policies: Annotated[List[PositiveInt], Field(default_factory=list), EnsureListUnique]
     dynamic_policies: Annotated[List[PositiveInt], Field(default_factory=list), EnsureListUnique]
 
+    cases: List["TestCaseCreate"] = Field(default_factory=list)
+
 
 class TestUpdate(TestBase):
     policies: Annotated[List[PositiveInt], Field(default_factory=list), EnsureListUnique]
     dynamic_policies: Annotated[List[PositiveInt], Field(default_factory=list), EnsureListUnique]
+
+    cases: List["TestCaseUpdate"] = Field(default_factory=list)
 
 
 class TestDelete(TestBase):
@@ -65,12 +69,14 @@ class TestCaseBase(BaseModel):
 
 
 class TestCaseRead(TimestampSchema, TestCaseBase):
-    id: int
-    test_id: int
+    # id: int
+    # test_id: int
+    pass
 
 
 class TestCaseReadBrief(TestCaseBase):
-    id: int
+    # id: int
+    pass
 
 
 class TestCaseCreate(TestCaseBase):

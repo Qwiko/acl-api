@@ -29,15 +29,23 @@ class PolicyReadBrief(TimestampSchema, PolicyBase):
 class PolicyCreated(TimestampSchema, PolicyBase):
     id: int
 
+    targets_ids: Annotated[List[PositiveInt], Field(serialization_alias="targets", default_factory=list)]
+    tests_ids: Annotated[List[PositiveInt], Field(serialization_alias="tests", default_factory=list)]
+    terms: Annotated[List[Union["PolicyTermRead", "PolicyTermNestedRead"]], Field(default_factory=list)]
+
 
 class PolicyCreate(PolicyBase):
     targets: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
     tests: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
 
+    terms: List[Union["PolicyTermCreate", "PolicyTermNestedCreate"]] = Field(default_factory=list)
+
 
 class PolicyUpdate(PolicyBase):
     targets: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
     tests: Annotated[Optional[List[PositiveInt]], Field(default_factory=list), EnsureListUnique]
+
+    terms: List[Union["PolicyTermUpdate", "PolicyTermNestedUpdate"]] = Field(default_factory=list)
 
 
 class PolicyUpdateInternal(PolicyUpdate):
@@ -119,7 +127,7 @@ class PolicyTermBase(PolicyTermSharedBase):
 
     logging: Annotated[bool, Field(default=False)]
 
-    action: PolicyActionEnum
+    action: PolicyActionEnum = PolicyActionEnum.ACCEPT
 
     negate_source_networks: Annotated[bool, Field(default=False)]
     negate_destination_networks: Annotated[bool, Field(default=False)]
@@ -130,7 +138,7 @@ class PolicyTermNestedBase(PolicyTermSharedBase):
 
 
 class PolicyTermReadInternal(PolicyTermBase):
-    id: int
+    # id: int
     policy_id: int
 
     source_networks_ids: Annotated[List[int], Field(serialization_alias="source_networks", default_factory=list)]
@@ -147,28 +155,31 @@ class PolicyTermReadInternal(PolicyTermBase):
 
 
 class PolicyTermRead(TimestampSchema, PolicyTermReadInternal):
-    position: PositiveInt
+    # position: PositiveInt
+    pass
 
 
 class PolicyTermNestedRead(PolicyTermNestedBase):
-    id: int
+    # id: int
     policy_id: int
 
-    position: PositiveInt
+    # position: PositiveInt
 
 
 class PolicyTermReadBrief(PolicyTermBase):
-    id: int
-    position: PositiveInt
+    # id: int
+    # position: PositiveInt
+    pass
 
 
 class PolicyTermNestedReadBrief(PolicyTermNestedBase):
-    id: int
-    position: PositiveInt
+    # id: int
+    # position: PositiveInt
+    pass
 
 
 class PolicyTermCreate(PolicyTermBase):
-    position: Annotated[PositiveInt | None, Field(default=1)]
+    # position: Annotated[PositiveInt | None, Field(default=1)]
     source_networks: Annotated[List[PositiveInt], Field(default_factory=list)]
     destination_networks: Annotated[List[PositiveInt], Field(default_factory=list)]
 
@@ -177,11 +188,12 @@ class PolicyTermCreate(PolicyTermBase):
 
 
 class PolicyTermNestedCreate(PolicyTermNestedBase):
-    position: Annotated[PositiveInt | None, Field(default=1)]
+    # position: Annotated[PositiveInt | None, Field(default=1)]
+    pass
 
 
 class PolicyTermUpdate(PolicyTermBase):
-    position: Annotated[PositiveInt | None, Field(default=1)]
+    # position: Annotated[PositiveInt | None, Field(default=1)]
 
     source_networks: Annotated[List[PositiveInt], Field(default_factory=list)]
     destination_networks: Annotated[List[PositiveInt], Field(default_factory=list)]
@@ -191,7 +203,8 @@ class PolicyTermUpdate(PolicyTermBase):
 
 
 class PolicyTermNestedUpdate(PolicyTermNestedBase):
-    position: Annotated[PositiveInt | None, Field(default=1)]
+    # position: Annotated[PositiveInt | None, Field(default=1)]
+    pass
 
 
 class PolicyTermDelete(PolicyTermBase):

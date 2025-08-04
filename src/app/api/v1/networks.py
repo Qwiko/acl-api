@@ -15,18 +15,14 @@ from ...core.cruds import address_crud, network_crud
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
 from ...core.security import User, get_current_user
-from ...filters.network import NetworkAddressFilter, NetworkFilter
+from ...filters.network import NetworkFilter
 from ...models import DynamicPolicy, Network, NetworkAddress, PolicyTerm
 from ...models.dynamic_policy import DynamicPolicyDestinationFilterAssociation, DynamicPolicySourceFilterAssociation
 from ...models.policy import PolicyTermDestinationNetworkAssociation, PolicyTermSourceNetworkAssociation
 from ...schemas.network import (
-    NetworkAddressCreate,
-    NetworkAddressRead,
-    NetworkAddressUpdate,
     NetworkCreate,
     NetworkCreated,
     NetworkRead,
-    NetworkReadBrief,
     NetworkUpdate,
     NetworkUsage,
 )
@@ -36,13 +32,13 @@ router = APIRouter(tags=["networks"])
 func: Callable
 
 
-@router.get("/networks", response_model=Page[NetworkReadBrief])
+@router.get("/networks", response_model=Page[NetworkRead])
 async def read_networks(
     current_user: Annotated[User, Security(get_current_user, scopes=["networks:read"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
     network_filter: NetworkFilter = FilterDepends(NetworkFilter),
 ) -> Any:
-    query = select(Network)#.outerjoin(NetworkAddress, (Network.id == NetworkAddress.network_id))
+    query = select(Network)  # .outerjoin(NetworkAddress, (Network.id == NetworkAddress.network_id))
     query = network_filter.filter(query)
     query = network_filter.sort(query)
 
@@ -63,7 +59,17 @@ async def write_network(
     if found_network:
         raise RequestValidationError([{"loc": ["body", "name"], "msg": "A network with this name already exists"}])
 
-    network = await network_crud.create(db, values)
+    addresses = values.addresses or []
+    del values.addresses
+
+    network = Network(**values.model_dump())
+
+    network.addresses = [
+        NetworkAddress(**address.model_dump(), network=network, network_id=network.id) for address in addresses
+    ]
+
+    db.add(network)
+    await db.commit()
 
     return network
 
@@ -75,10 +81,8 @@ async def read_network(
     current_user: Annotated[User, Security(get_current_user, scopes=["networks:read"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict:
-    network = await network_crud.get(db, network_id, True)
-
-    if not network:
-        raise NotFoundException("Network not found")
+    result = await db.execute(select(Network).where(Network.id == network_id))
+    network = result.unique().scalars().one_or_none()
 
     return network
 
@@ -91,7 +95,8 @@ async def put_network(
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, Any]:
     # Check if the network exists
-    network = await network_crud.get(db, network_id)
+    result = await db.execute(select(Network).where(Network.id == network_id))
+    network = result.unique().scalars().one_or_none()
     if not network:
         raise NotFoundException("Network not found")
 
@@ -101,8 +106,23 @@ async def put_network(
     if existing_network:
         raise RequestValidationError([{"loc": ["body", "name"], "msg": "A network with this name already exists"}])
 
-    updated_network = await network_crud.update(db, network_id, values)
-    return updated_network
+    addresses = values.addresses or []
+    del values.addresses
+
+    # Update the existing network
+    for k, v in values.model_dump(exclude_unset=True).items():
+        setattr(network, k, v)
+
+    # Clear existing addresses and add new ones
+    network.addresses.clear()
+    for address in addresses:
+        new_address = NetworkAddress(**address.model_dump(), network=network, network_id=network.id)
+        # print(new_address)
+        network.addresses.append(new_address)
+
+    await db.commit()
+    await db.refresh(network)
+    return network
 
 
 @router.delete("/networks/{network_id}")
@@ -193,125 +213,3 @@ async def read_network_usage(
     networks = results[2].scalars().all()
 
     return {"dynamic_policies": dynamic_policies, "policies": policies, "networks": networks}
-
-
-# NetworkAddress
-@router.get("/networks/{network_id}/addresses", response_model=Page[NetworkAddressRead])
-async def read_addresses(
-    network_id: int,
-    current_user: Annotated[User, Security(get_current_user, scopes=["networks:read"])],
-    db: Annotated[AsyncSession, Depends(async_get_db)],
-    network_address_filter: NetworkAddressFilter = FilterDepends(NetworkAddressFilter),
-) -> List:
-    query = select(NetworkAddress).where(NetworkAddress.network_id == network_id)
-    query = network_address_filter.filter(query)
-    query = network_address_filter.sort(query)
-
-    return await paginate(db, query)
-
-
-@router.post("/networks/{network_id}/addresses", response_model=NetworkAddressRead, status_code=201)
-async def write_network_address(
-    network_id: int,
-    values: NetworkAddressCreate,
-    current_user: Annotated[User, Security(get_current_user, scopes=["networks:write"])],
-    db: Annotated[AsyncSession, Depends(async_get_db)],
-) -> NetworkAddressRead:
-    network = await network_crud.get(db, network_id)
-
-    if network is None:
-        raise NotFoundException("Network not found")
-
-    # Check if the nested address exists
-    if values.nested_network_id:
-        nested_network = await network_crud.get(db, values.nested_network_id)
-        if nested_network is None:
-            raise RequestValidationError([{"loc": ["body", "nested_network_id"], "msg": "Nested network not found"}])
-
-    # Check if the address already exists
-    existing_address = await address_crud.get_all(
-        db,
-        filter_by={"address": values.address, "network_id": network.id, "nested_network_id": values.nested_network_id},
-    )
-    if existing_address:
-        raise RequestValidationError([{"loc": ["body", "address"], "msg": "Network address already exists"}])
-
-    network_address = await address_crud.create(db, values, {"network_id": network.id, "network": network})
-
-    return network_address
-
-
-@router.get("/networks/{network_id}/addresses/{address_id}", response_model=NetworkAddressRead)
-async def read_network_address(
-    request: Request,
-    network_id: int,
-    address_id: int,
-    current_user: Annotated[User, Security(get_current_user, scopes=["networks:read"])],
-    db: Annotated[AsyncSession, Depends(async_get_db)],
-) -> dict:
-    network = await network_crud.get(db, network_id)
-    if network is None:
-        raise NotFoundException("Network not found")
-    filter_by = {"network_id": network.id}
-    address = await address_crud.get(db, address_id, filter_by=filter_by)
-
-    if address is None:
-        raise NotFoundException("Network address not found")
-
-    return address
-
-
-@router.put("/networks/{network_id}/addresses/{address_id}", response_model=NetworkAddressRead)
-async def put_network_address(
-    request: Request,
-    network_id: int,
-    address_id: int,
-    values: NetworkAddressUpdate,
-    current_user: Annotated[User, Security(get_current_user, scopes=["networks:write"])],
-    db: Annotated[AsyncSession, Depends(async_get_db)],
-) -> dict[str, str]:
-    network = await network_crud.get(db, network_id)
-
-    if network is None:
-        raise NotFoundException("Network not found")
-
-    address = await address_crud.get(db, address_id, filter_by={"network_id": network.id})
-
-    if address is None:
-        raise NotFoundException("Network address not found")
-    
-    # Check if the nested address exists
-    if values.nested_network_id:
-        nested_network = await network_crud.get(db, values.nested_network_id)
-        if nested_network is None:
-            raise RequestValidationError([{"loc": ["body", "nested_network_id"], "msg": "Nested network not found"}])
-
-    # TODO Check if the address already exist, duplicates are not accepted.
-
-    network_address = await address_crud.update(db, address.id, values)
-
-    return network_address
-
-
-@router.delete("/networks/{network_id}/addresses/{address_id}")
-async def erase_network_address(
-    request: Request,
-    network_id: int,
-    address_id: int,
-    current_user: Annotated[User, Security(get_current_user, scopes=["networks:write"])],
-    db: Annotated[AsyncSession, Depends(async_get_db)],
-) -> None:
-    network = await network_crud.get(db, network_id)
-
-    if network is None:
-        raise NotFoundException("Network not found")
-
-    filter_by = {"network_id": network.id}
-    address = await address_crud.get(db, address_id, filter_by=filter_by)
-
-    if address is None:
-        raise NotFoundException("Network address not found")
-
-    await address_crud.delete(db, address.id)
-
-    return {"message": "Network address deleted"}

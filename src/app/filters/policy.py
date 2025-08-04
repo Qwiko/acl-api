@@ -37,9 +37,7 @@ class PolicyTermFilter(Filter):
     name__like: Optional[str] = None
     name__neq: Optional[str] = None
 
-    position: Optional[int] = None
-
-    order_by: list[str] = ["position"]
+    order_by: list[str] = ["id"]
 
     q: Optional[str] = None
 

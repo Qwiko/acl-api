@@ -140,7 +140,7 @@ async def fetch_terms(
     destination_network_ids = {net.id for net in destination_networks}
 
     stmt = (
-        select(PolicyTerm).distinct().order_by(PolicyTerm.policy_id.asc(), PolicyTerm.lex_order.asc())
+        select(PolicyTerm).distinct()  # .order_by(PolicyTerm.policy_id.asc(), PolicyTerm.lex_order.asc())
     )  # Sort results
 
     stmt = stmt.join(
@@ -222,26 +222,26 @@ async def fetch_terms(
     result = await db.execute(stmt)
 
     terms = result.unique().scalars().all()
-    
+
     return terms
-    
+
     # customized_terms = []
-    
+
     # # We need to copy the object to be able to this without overwriting stuff.
     # # TODO, build extensive tests for this behavior
-    
+
     # for term in terms:
     #     # Any - Any destination
     #     if not term.source_networks and not term.destination_networks:
     #         # Do nothing and use the term as is
     #         pass
-        
+
     #     # Any - some destination
     #     elif not term.source_networks and term.destination_networks:
     #         # Filter only if we have destination_networks
     #         if destination_networks:
     #             term.destination_networks = [net for net in term.destination_networks if net.id in destination_network_ids]
-                
+
     #     # Some source -> some destination
     #     elif term.source_networks and term.destination_networks:
     #         # Filter only if we have source_networks
@@ -251,7 +251,7 @@ async def fetch_terms(
     #         # Filter only if we have destination_networks
     #         if destination_networks:
     #             term.destination_networks = [net for net in term.destination_networks if net.id in destination_network_ids]
-                
+
     #     # Some source -> Any destination
     #     elif term.source_networks and not term.destination_networks:
     #         # Filter only if we have source_networks
@@ -263,5 +263,5 @@ async def fetch_terms(
     #         pass
 
     #     customized_terms.append(term)
-        
+
     # return customized_terms
