@@ -81,7 +81,7 @@ async def write_revision(
     coverage = test_dict.get("coverage", 0.0)
     if coverage < settings.REVISON_NEEDED_COVERAGE:
         raise HTTPException(
-            status_code=403, detail=f"Test coverage {round(coverage*100)}% is lower than the required 100%"
+            status_code=403, detail=f"Test coverage {round(coverage*100)}% is lower than the required {settings.REVISON_NEEDED_COVERAGE}%"
         )
 
     if isinstance(values, DynamicPolicyRevisionCreate):
