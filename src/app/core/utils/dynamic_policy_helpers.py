@@ -6,12 +6,12 @@ from sqlalchemy.dialects.postgresql import CIDR
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-
 from ...models import (
     Network,
     NetworkAddress,
     PolicyTerm,
 )
+from ...models.dynamic_policy import DynamicPolicyFilterActionEnum
 from ...models.policy import PolicyTermDestinationNetworkAssociation, PolicyTermSourceNetworkAssociation
 
 
@@ -121,7 +121,7 @@ async def fetch_terms(
     source_networks: List["Network"] = [],
     destination_networks: List["Network"] = [],
     policy_ids: List[int] = [],
-    filter_action: Optional[str] = None,
+    filter_action: Optional[DynamicPolicyFilterActionEnum] = None,
 ) -> List["PolicyTerm"]:
     """
     Fetches PolicyTerm objects based on source and destination networks, filtering by action if provided.
@@ -214,7 +214,7 @@ async def fetch_terms(
         conditions.append(PolicyTerm.policy_id.in_(policy_ids))
 
     if filter_action:
-        conditions.append(PolicyTerm.action.ilike(filter_action))
+        conditions.append(PolicyTerm.action == filter_action)
 
     if conditions:
         stmt = stmt.where(and_(*conditions))
@@ -223,45 +223,46 @@ async def fetch_terms(
 
     terms = result.unique().scalars().all()
 
-    return terms
+    customized_terms = []
 
-    # customized_terms = []
+    for term in terms:
+        # Remove the term from the active session so changes are not saved to the db.
+        db.expunge(term)
+        # Any - Any destination
+        if not term.source_networks and not term.destination_networks:
+            # Do nothing and use the term as is
+            pass
 
-    # # We need to copy the object to be able to this without overwriting stuff.
-    # # TODO, build extensive tests for this behavior
+        # Any - some destination
+        elif not term.source_networks and term.destination_networks:
+            # Filter only if we have destination_networks
+            if destination_networks:
+                term.destination_networks = [
+                    net for net in term.destination_networks if net.id in destination_network_ids
+                ]
 
-    # for term in terms:
-    #     # Any - Any destination
-    #     if not term.source_networks and not term.destination_networks:
-    #         # Do nothing and use the term as is
-    #         pass
+        # Some source -> some destination
+        elif term.source_networks and term.destination_networks:
+            # Filter only if we have source_networks
+            if source_networks:
+                term.source_networks = [net for net in term.source_networks if net.id in source_network_ids]
 
-    #     # Any - some destination
-    #     elif not term.source_networks and term.destination_networks:
-    #         # Filter only if we have destination_networks
-    #         if destination_networks:
-    #             term.destination_networks = [net for net in term.destination_networks if net.id in destination_network_ids]
+            # Filter only if we have destination_networks
+            if destination_networks:
+                term.destination_networks = [
+                    net for net in term.destination_networks if net.id in destination_network_ids
+                ]
 
-    #     # Some source -> some destination
-    #     elif term.source_networks and term.destination_networks:
-    #         # Filter only if we have source_networks
-    #         if source_networks:
-    #             term.source_networks = [net for net in term.source_networks if net.id in source_network_ids]
+        # Some source -> Any destination
+        elif term.source_networks and not term.destination_networks:
+            # Filter only if we have source_networks
+            if source_networks:
+                term.source_networks = [net for net in term.source_networks if net.id in source_network_ids]
 
-    #         # Filter only if we have destination_networks
-    #         if destination_networks:
-    #             term.destination_networks = [net for net in term.destination_networks if net.id in destination_network_ids]
+        else:
+            # Should not ever come here
+            pass
 
-    #     # Some source -> Any destination
-    #     elif term.source_networks and not term.destination_networks:
-    #         # Filter only if we have source_networks
-    #         if source_networks:
-    #             term.source_networks = [net for net in term.source_networks if net.id in source_network_ids]
+        customized_terms.append(term)
 
-    #     else:
-    #         # Should not ever come here
-    #         pass
-
-    #     customized_terms.append(term)
-
-    # return customized_terms
+    return customized_terms
