@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, Optional
 from pydantic.networks import IPvAnyAddress
 from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy_mixins.serialize import SerializeMixin
 from sqlalchemy_mixins.timestamp import TimestampsMixin
 
 from ..core.db.database import Base
@@ -21,7 +20,7 @@ else:
     Test = "Test"
 
 
-class Deployer(Base, SerializeMixin, TimestampsMixin):
+class Deployer(Base, TimestampsMixin):
     __tablename__ = "deployers"
 
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
