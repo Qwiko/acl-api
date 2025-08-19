@@ -1,6 +1,6 @@
-from typing import Optional, List
+from typing import List, Optional
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint, CheckConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy_mixins.timestamp import TimestampsMixin
 
@@ -25,7 +25,7 @@ class Service(Base, TimestampsMixin):
     )
 
 
-class ServiceEntry(Base, TimestampsMixin):
+class ServiceEntry(Base):
     __tablename__ = "service_entries"
     __table_args__ = (
         UniqueConstraint("service_id", "nested_service_id", name="uq_service_entry_nested"),

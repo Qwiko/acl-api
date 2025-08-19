@@ -1,13 +1,11 @@
 from typing import Annotated, List, Optional
 
-
 from pydantic import BaseModel, Field, PositiveInt, field_validator
 from pydantic.networks import IPvAnyAddress
 
 from ..core.schemas import TimestampSchema
-from .policy import PolicyTermRead, PolicyTermReadInternal
-
 from .custom_validators import EnsureListUnique
+from .policy import PolicyTermRead, PolicyTermReadInternal
 
 
 class TestBase(BaseModel):
@@ -68,14 +66,11 @@ class TestCaseBase(BaseModel):
         return v
 
 
-class TestCaseRead(TimestampSchema, TestCaseBase):
-    # id: int
-    # test_id: int
+class TestCaseRead(TestCaseBase):
     pass
 
 
 class TestCaseReadBrief(TestCaseBase):
-    # id: int
     pass
 
 

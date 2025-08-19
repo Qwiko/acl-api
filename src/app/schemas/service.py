@@ -1,7 +1,7 @@
 from typing import Annotated, List
-from typing_extensions import Self
 
-from pydantic import BaseModel, Field, model_validator, PositiveInt, field_validator
+from pydantic import BaseModel, Field, PositiveInt, field_validator, model_validator
+from typing_extensions import Self
 
 from ..core.schemas import TimestampSchema
 
@@ -107,9 +107,8 @@ class ServiceEntryBase(BaseModel):
                 raise ValueError("Port must be an integer or string in 'start-end' format")
 
 
-class ServiceEntryRead(TimestampSchema, ServiceEntryBase):
-    # id: int
-    service_id: int
+class ServiceEntryRead(ServiceEntryBase):
+    pass
 
 
 class ServiceEntryReadBrief(ServiceEntryBase):

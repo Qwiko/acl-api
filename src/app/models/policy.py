@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint, func, CheckConstraint
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -45,15 +45,8 @@ class Policy(Base, TimestampsMixin):
     name: Mapped[str] = mapped_column(String)
     comment: Mapped[Optional[str]] = mapped_column(String)
 
-    # targets: Mapped[List["PolicyTarget"]] = relationship(
-    #     foreign_keys="PolicyTarget.policy_id",
-    #     back_populates="policy",
-    #     cascade="all, delete",
-    #     lazy="joined",
-    #     init=False,
-    # )
     tests: Mapped[List["Test"]] = relationship(
-        secondary="test_policy_association", lazy="joined", back_populates="policies"
+        secondary="test_policy_association", lazy="joined", back_populates="policies", init=False
     )
 
     @property
@@ -61,7 +54,7 @@ class Policy(Base, TimestampsMixin):
         return [test.id for test in self.tests]
 
     targets: Mapped[List["Target"]] = relationship(
-        secondary="target_policy_association", lazy="joined", back_populates="policies"
+        secondary="target_policy_association", lazy="joined", back_populates="policies", init=False
     )
 
     @property
@@ -116,7 +109,7 @@ class PolicyTermDestinationServiceAssociation(Base):
     service_id: Mapped[int] = mapped_column(ForeignKey("services.id"), primary_key=True)
 
 
-class PolicyTerm(Base, TimestampsMixin):
+class PolicyTerm(Base):
     __tablename__ = "policy_terms"
     __table_args__ = (
         UniqueConstraint("policy_id", "name", name="uq_policy_term_name"),

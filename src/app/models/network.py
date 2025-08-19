@@ -1,16 +1,15 @@
 from typing import List, Optional
 
-from sqlalchemy import ForeignKey, String, CheckConstraint, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import CIDR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql.elements import TextClause
-from sqlalchemy_mixins.serialize import SerializeMixin
 from sqlalchemy_mixins.timestamp import TimestampsMixin
 
 from ..core.db.database import Base
 
 
-class Network(Base, SerializeMixin, TimestampsMixin):
+class Network(Base, TimestampsMixin):
     __tablename__ = "networks"
     __table_args__ = (UniqueConstraint("id", "name", name="uq_network_name"),)
 
@@ -28,7 +27,7 @@ class Network(Base, SerializeMixin, TimestampsMixin):
     )
 
 
-class NetworkAddress(Base, SerializeMixin, TimestampsMixin):
+class NetworkAddress(Base):
     __tablename__ = "network_addresses"
     __table_args__ = (
         UniqueConstraint("network_id", "nested_network_id", name="uq_network_address_nested"),

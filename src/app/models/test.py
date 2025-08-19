@@ -56,7 +56,7 @@ class Test(Base, TimestampsMixin):
         return [policy.id for policy in self.policies]
 
 
-class TestCase(Base, TimestampsMixin):
+class TestCase(Base):
     __tablename__ = "test_cases"
 
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)

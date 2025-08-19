@@ -1,8 +1,8 @@
 from typing import Annotated, List
-from typing_extensions import Self
 
-from pydantic import BaseModel, Field, model_validator, PositiveInt, field_validator
+from pydantic import BaseModel, Field, PositiveInt, field_validator, model_validator
 from pydantic.networks import IPvAnyNetwork
+from typing_extensions import Self
 
 from ..core.schemas import TimestampSchema
 
@@ -74,7 +74,7 @@ class NetworkAddressBase(BaseModel):
         return str(v)
 
 
-class NetworkAddressRead(TimestampSchema, NetworkAddressBase):
+class NetworkAddressRead(NetworkAddressBase):
     pass
 
 

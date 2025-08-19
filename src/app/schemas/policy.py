@@ -5,8 +5,8 @@ from pydantic import BaseModel, Field, PositiveInt, ValidationError, field_valid
 from pydantic_core import InitErrorDetails, PydanticCustomError
 
 from ..core.schemas import TimestampSchema
-from .custom_validators import EnsureListUnique
 from ..models.policy import PolicyActionEnum, PolicyOptionEnum
+from .custom_validators import EnsureListUnique
 
 
 class PolicyBase(BaseModel):
@@ -92,7 +92,7 @@ class PolicyTermSharedBase(BaseModel):
             "destination_services",
         ]
         for check_field in check_fields:
-            if data.get(check_field) and data.get("nested_policy_id"):
+            if not isinstance(data, str) and data.get(check_field) and data.get("nested_policy_id"):
                 errors.append(
                     InitErrorDetails(
                         type=PydanticCustomError(
@@ -154,32 +154,24 @@ class PolicyTermReadInternal(PolicyTermBase):
     ]
 
 
-class PolicyTermRead(TimestampSchema, PolicyTermReadInternal):
-    # position: PositiveInt
+class PolicyTermRead(PolicyTermReadInternal):
     pass
 
 
 class PolicyTermNestedRead(PolicyTermNestedBase):
-    # id: int
     policy_id: int
 
-    # position: PositiveInt
 
 
 class PolicyTermReadBrief(PolicyTermBase):
-    # id: int
-    # position: PositiveInt
     pass
 
 
 class PolicyTermNestedReadBrief(PolicyTermNestedBase):
-    # id: int
-    # position: PositiveInt
     pass
 
 
 class PolicyTermCreate(PolicyTermBase):
-    # position: Annotated[PositiveInt | None, Field(default=1)]
     source_networks: Annotated[List[PositiveInt], Field(default_factory=list)]
     destination_networks: Annotated[List[PositiveInt], Field(default_factory=list)]
 
@@ -188,13 +180,10 @@ class PolicyTermCreate(PolicyTermBase):
 
 
 class PolicyTermNestedCreate(PolicyTermNestedBase):
-    # position: Annotated[PositiveInt | None, Field(default=1)]
     pass
 
 
 class PolicyTermUpdate(PolicyTermBase):
-    # position: Annotated[PositiveInt | None, Field(default=1)]
-
     source_networks: Annotated[List[PositiveInt], Field(default_factory=list)]
     destination_networks: Annotated[List[PositiveInt], Field(default_factory=list)]
 
@@ -203,7 +192,6 @@ class PolicyTermUpdate(PolicyTermBase):
 
 
 class PolicyTermNestedUpdate(PolicyTermNestedBase):
-    # position: Annotated[PositiveInt | None, Field(default=1)]
     pass
 
 
