@@ -1,12 +1,12 @@
+from enum import Enum
 from typing import Annotated, List, Optional
 
 from aerleon.lib.plugin_supervisor import BUILTIN_GENERATORS
+from netutils.lib_mapper import AERLEON_LIB_MAPPER
 from pydantic import BaseModel, Field, PositiveInt, field_validator
 
 from ..core.schemas import TimestampSchema
-
 from .custom_validators import EnsureListUnique
-from enum import Enum
 
 
 class TargetInetModeEnum(str, Enum):
@@ -27,7 +27,7 @@ class TargetBase(BaseModel):
     @field_validator("generator")
     @classmethod
     def validate_generator(cls, v: str) -> str:
-        if v not in [g[0] for g in BUILTIN_GENERATORS]:
+        if v not in [AERLEON_LIB_MAPPER.get(g[0], g[0]) for g in BUILTIN_GENERATORS]:
             raise ValueError("not a valid generator.")
         return v
 

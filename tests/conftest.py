@@ -7,10 +7,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.session import Session
 
-from src.app.core.db.database import Base
 from src.app.core.config import settings
+from src.app.core.db.database import Base
+from src.app.core.security import User, get_current_user
 from src.app.main import app
-from src.app.core.security import get_current_user, User
 
 DATABASE_URI = settings.POSTGRES_URI
 DATABASE_PREFIX = settings.POSTGRES_SYNC_PREFIX

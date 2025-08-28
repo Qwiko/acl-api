@@ -5,7 +5,8 @@ from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy_mixins.timestamp import TimestampsMixin
 
-from ..core.db.database import Base
+from app.models.base import Base
+
 from ..schemas.custom_validators import DNSHostname
 
 if TYPE_CHECKING:

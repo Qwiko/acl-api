@@ -10,12 +10,6 @@ config = Config(env_path)
 
 
 class AppSettings(BaseSettings):
-    APP_NAME: str = config("APP_NAME", default="FastAPI app")
-    APP_DESCRIPTION: str | None = config("APP_DESCRIPTION", default=None)
-    APP_VERSION: str | None = config("APP_VERSION", default=None)
-    LICENSE_NAME: str | None = config("LICENSE", default=None)
-    CONTACT_NAME: str | None = config("CONTACT_NAME", default=None)
-    CONTACT_EMAIL: str | None = config("CONTACT_EMAIL", default=None)
     REVISON_NEEDED_COVERAGE: float = config("TEST_COVERAGE", default=0)
 
 
@@ -38,10 +32,6 @@ class PostgresSettings(DatabaseSettings):
 class TestSettings(BaseSettings): ...
 
 
-class ClientSideCacheSettings(BaseSettings):
-    CLIENT_CACHE_MAX_AGE: int = config("CLIENT_CACHE_MAX_AGE", default=60)
-
-
 class RedisQueueSettings(BaseSettings):
     REDIS_QUEUE_HOST: str = config("REDIS_QUEUE_HOST", default="localhost")
     REDIS_QUEUE_PORT: int = config("REDIS_QUEUE_PORT", default=6379)
@@ -61,7 +51,6 @@ class Settings(
     AppSettings,
     PostgresSettings,
     TestSettings,
-    ClientSideCacheSettings,
     RedisQueueSettings,
     EnvironmentSettings,
 ):

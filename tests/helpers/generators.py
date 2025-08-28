@@ -4,8 +4,8 @@ from aerleon.lib.plugin_supervisor import BUILTIN_GENERATORS
 from sqlalchemy.orm import Session
 
 from src.app import models
-from tests.conftest import fake
 from src.app.schemas.deployer import DeployerModeEnum
+from tests.conftest import fake
 
 
 def create_network(db: Session) -> models.Network:

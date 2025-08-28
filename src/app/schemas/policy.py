@@ -1,12 +1,13 @@
 from datetime import datetime
 from typing import Annotated, Any, List, Optional, Text, Union
 
-from pydantic import BaseModel, Field, PositiveInt, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, Field, PositiveInt, StrictBool, ValidationError, field_validator, model_validator
 from pydantic_core import InitErrorDetails, PydanticCustomError
 
-from ..core.schemas import TimestampSchema
-from ..models.policy import PolicyActionEnum, PolicyOptionEnum
-from .custom_validators import EnsureListUnique
+from app.core.schemas import TimestampSchema
+from app.models import PolicyTerm
+from app.models.policy import PolicyActionEnum, PolicyOptionEnum
+from app.schemas.custom_validators import EnsureListUnique
 
 
 class PolicyBase(BaseModel):
@@ -16,6 +17,7 @@ class PolicyBase(BaseModel):
 
 class PolicyRead(TimestampSchema, PolicyBase):
     id: int
+    edited: StrictBool
 
     targets_ids: Annotated[List[PositiveInt], Field(serialization_alias="targets", default_factory=list)]
     tests_ids: Annotated[List[PositiveInt], Field(serialization_alias="tests", default_factory=list)]
@@ -24,7 +26,7 @@ class PolicyRead(TimestampSchema, PolicyBase):
 
 class PolicyReadBrief(TimestampSchema, PolicyBase):
     id: int
-
+    edited: StrictBool
 
 class PolicyCreated(TimestampSchema, PolicyBase):
     id: int
@@ -60,7 +62,6 @@ class PolicyUsage(BaseModel):
     policies: Annotated[List[PositiveInt], Field(default_factory=list)]
 
 
-from ..models import PolicyTerm
 
 
 ## PolicyTerm
@@ -68,7 +69,9 @@ class PolicyTermSharedBase(BaseModel):
     name: Annotated[
         str, Field()
     ]  # Annotated[str, Field(min_length=2, max_length=30, examples=["This is my Policy name"])]
-
+    comment: Annotated[
+        Optional[str], Field(default="")
+    ]  # Annotated[str, Field(min_length=2, max_length=30, examples=["This is my Policy name"])]
     enabled: Annotated[bool, Field(default=False)]
 
     @model_validator(mode="before")
@@ -160,7 +163,6 @@ class PolicyTermRead(PolicyTermReadInternal):
 
 class PolicyTermNestedRead(PolicyTermNestedBase):
     policy_id: int
-
 
 
 class PolicyTermReadBrief(PolicyTermBase):

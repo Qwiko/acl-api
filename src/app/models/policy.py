@@ -7,7 +7,8 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy_mixins.timestamp import TimestampsMixin
 
-from ..core.db.database import Base
+from app.models.base import Base
+
 from .network import Network
 from .service import Service
 
@@ -43,6 +44,9 @@ class Policy(Base, TimestampsMixin):
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
 
     name: Mapped[str] = mapped_column(String)
+
+    edited: Mapped[bool] = mapped_column(Boolean)
+
     comment: Mapped[Optional[str]] = mapped_column(String)
 
     tests: Mapped[List["Test"]] = relationship(
@@ -126,6 +130,8 @@ class PolicyTerm(Base):
     policy: Mapped["Policy"] = relationship(foreign_keys=[policy_id], back_populates="terms", lazy="selectin")
 
     name: Mapped[str] = mapped_column(String)
+
+    comment: Mapped[Optional[str]] = mapped_column(String)
 
     source_networks: Mapped[Optional[List["Network"]]] = relationship(
         secondary="policy_term_source_network_association", lazy="selectin"

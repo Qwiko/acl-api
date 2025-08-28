@@ -2,7 +2,7 @@ from typing import Optional
 
 from fastapi_filter.contrib.sqlalchemy import Filter
 
-from ..models import DynamicPolicy
+from app.models import DynamicPolicy
 
 
 class DynamicPolicyFilter(Filter):
@@ -15,6 +15,8 @@ class DynamicPolicyFilter(Filter):
     name__ilike: Optional[str] = None
     name__like: Optional[str] = None
     name__neq: Optional[str] = None
+
+    edited: Optional[bool] = None
 
     order_by: list[str] = ["id"]
 

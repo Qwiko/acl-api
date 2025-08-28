@@ -4,7 +4,7 @@ from sqlalchemy import CheckConstraint, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy_mixins.timestamp import TimestampsMixin
 
-from ..core.db.database import Base
+from app.models.base import Base
 
 
 class Service(Base, TimestampsMixin):

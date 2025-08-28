@@ -7,31 +7,28 @@ import fastapi
 from arq import create_pool
 from arq.connections import RedisSettings
 from fastapi import APIRouter, FastAPI, Request
-from fastapi.exceptions import RequestValidationError, HTTPException
+from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from fastapi_pagination import add_pagination
+from pydantic import BaseModel
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 
-from ..middleware.client_cache_middleware import ClientCacheMiddleware
-from ..models import *
+from app.core.db.database import async_engine as engine
+from app.core.utils import queue
+from app.models.base import Base
+from app.version import __description__, __title__, __version__
+
 from .config import (
     AppSettings,
-    ClientSideCacheSettings,
     DatabaseSettings,
     EnvironmentOption,
     EnvironmentSettings,
     RedisQueueSettings,
     settings,
 )
-from .db.database import Base
-from .db.database import async_engine as engine
-from .utils import queue
-
-
-from pydantic import BaseModel
 
 
 class Error(BaseModel):
@@ -112,7 +109,7 @@ async def set_threadpool_tokens(number_of_tokens: int = 100) -> None:
 
 
 def lifespan_factory(
-    settings: (DatabaseSettings | AppSettings | ClientSideCacheSettings | RedisQueueSettings | EnvironmentSettings),
+    settings: (DatabaseSettings | AppSettings | RedisQueueSettings | EnvironmentSettings),
     create_tables_on_start: bool = True,
 ) -> Callable[[FastAPI], _AsyncGeneratorContextManager[Any]]:
     """Factory to create a lifespan async context manager for a FastAPI app."""
@@ -138,7 +135,7 @@ def lifespan_factory(
 # -------------- application --------------
 def create_application(
     router: APIRouter,
-    settings: (DatabaseSettings | AppSettings | ClientSideCacheSettings | RedisQueueSettings | EnvironmentSettings),
+    settings: (DatabaseSettings | AppSettings | RedisQueueSettings | EnvironmentSettings),
     create_tables_on_start: bool = True,
     **kwargs: Any,
 ) -> FastAPI:
@@ -159,7 +156,6 @@ def create_application(
         - AppSettings: Configures basic app metadata like name, description, contact, and license info.
         - DatabaseSettings: Adds event handlers for initializing database tables during startup.
         - RedisCacheSettings: Sets up event handlers for creating and closing a Redis cache pool.
-        - ClientSideCacheSettings: Integrates middleware for client-side caching.
         - RedisQueueSettings: Sets up event handlers for creating and closing a Redis queue pool.
         - RedisRateLimiterSettings: Sets up event handlers for creating and closing a Redis rate limiter pool.
         - EnvironmentSettings: Conditionally sets documentation URLs and integrates custom routes for API documentation
@@ -182,15 +178,6 @@ def create_application(
     for caching, queue, and rate limiting, client-side caching, and customizing the API documentation
     based on the environment settings.
     """
-    # --- before creating application ---
-    if isinstance(settings, AppSettings):
-        to_update = {
-            "title": settings.APP_NAME,
-            "description": settings.APP_DESCRIPTION,
-            "contact": {"name": settings.CONTACT_NAME, "email": settings.CONTACT_EMAIL},
-            "license_info": {"name": settings.LICENSE_NAME},
-        }
-        kwargs.update(to_update)
 
     if isinstance(settings, EnvironmentSettings):
         kwargs.update({"docs_url": None, "redoc_url": None, "openapi_url": None})
@@ -198,6 +185,9 @@ def create_application(
     lifespan = lifespan_factory(settings, create_tables_on_start=create_tables_on_start)
 
     application = FastAPI(
+        version = __version__,
+        title = __title__,
+        description = __description__,
         middleware=[
             Middleware(
                 CORSMiddleware,
@@ -226,9 +216,6 @@ def create_application(
     application.include_router(router)
 
     add_pagination(application)
-
-    if isinstance(settings, ClientSideCacheSettings):
-        application.add_middleware(ClientCacheMiddleware, max_age=settings.CLIENT_CACHE_MAX_AGE)
 
     if isinstance(settings, EnvironmentSettings):
         if settings.ENVIRONMENT != EnvironmentOption.PRODUCTION:

@@ -1,8 +1,4 @@
 [tool.poetry]
-name = "acl-api"
-version = "0.0.1"
-description = "Async api to manage ACL using Aerleon"
-authors = ["Jakob Mellberg <jakob.mellberg@gmail.com>"]
 license = "MIT"
 readme = "README.md"
 packages = [{ include = "src" }]
@@ -44,6 +40,7 @@ pytest-cov = "^6.1.1"
 gitpython = "^3.1.44"
 passlib = "^1.7.4"
 pyjwt = "^2.10.1"
+netutils = "^1.14.1"
 
 
 [build-system]

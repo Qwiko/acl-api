@@ -140,7 +140,7 @@ async def fetch_terms(
     destination_network_ids = {net.id for net in destination_networks}
 
     stmt = (
-        select(PolicyTerm).distinct()  # .order_by(PolicyTerm.policy_id.asc(), PolicyTerm.lex_order.asc())
+        select(PolicyTerm).distinct().order_by(PolicyTerm.policy_id.asc(), PolicyTerm.id.asc())
     )  # Sort results
 
     stmt = stmt.join(

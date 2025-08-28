@@ -8,13 +8,13 @@ from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...core.cruds import deployment_crud
-from ...core.db.database import async_get_db
-from ...core.exceptions.http_exceptions import NotFoundException
-from ...core.security import User, get_current_user
-from ...filters.deployment import DeploymentFilter
-from ...models import Deployment
-from ...schemas.deployment import DeploymentRead, DeploymentReadBrief
+from app.core.cruds import deployment_crud
+from app.core.db.database import async_get_db
+from app.core.exceptions.http_exceptions import NotFoundException
+from app.core.security import User, get_current_user
+from app.filters.deployment import DeploymentFilter
+from app.models import Deployment
+from app.schemas.deployment import DeploymentRead, DeploymentReadBrief
 
 router = APIRouter(tags=["deployments"])
 

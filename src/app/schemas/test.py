@@ -65,8 +65,17 @@ class TestCaseBase(BaseModel):
             raise ValueError("not a valid expected_action.")
         return v
 
+    @field_validator("source_network", "destination_network", mode="after")
+    @classmethod
+    def validate_host(cls, v):
+        if not v:
+            return v
+        # Convert to string to save to db.
+        return str(v)
+
 
 class TestCaseRead(TestCaseBase):
+    test_id: int
     pass
 
 

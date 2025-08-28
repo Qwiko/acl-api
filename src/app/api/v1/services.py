@@ -12,14 +12,14 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import and_, exists, or_
 
-from ...core.cruds import entry_crud, service_crud
-from ...core.db.database import async_get_db
-from ...core.exceptions.http_exceptions import NotFoundException
-from ...core.security import User, get_current_user
-from ...filters.service import ServiceFilter
-from ...models import PolicyTerm, Service, ServiceEntry
-from ...models.policy import PolicyTermDestinationServiceAssociation, PolicyTermSourceServiceAssociation
-from ...schemas.service import (
+from app.core.cruds import entry_crud, service_crud
+from app.core.db.database import async_get_db
+from app.core.exceptions.http_exceptions import NotFoundException
+from app.core.security import User, get_current_user
+from app.filters.service import ServiceFilter
+from app.models import PolicyTerm, Service, ServiceEntry
+from app.models.policy import PolicyTermDestinationServiceAssociation, PolicyTermSourceServiceAssociation
+from app.schemas.service import (
     ServiceCreate,
     ServiceCreated,
     ServiceRead,

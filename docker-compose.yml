@@ -55,20 +55,6 @@ services:
     ports:
       - 6379:6379
 
-  #-------- uncomment to run with pgadmin --------
-  # pgadmin:
-  #   container_name: pgadmin4
-  #   image: dpage/pgadmin4:latest
-  #   restart: always
-  #   ports:
-  #     - "5050:80"
-  #   volumes:
-  #     - pgadmin-data:/var/lib/pgadmin
-  #   env_file:
-  #     - ./src/.env
-  #   depends_on:
-  #     - db
-
   #-------- uncomment to run with nginx --------
   # nginx:
   #   image: nginx:latest
@@ -80,20 +66,19 @@ services:
   #     - web
 
   #-------- uncomment to run tests --------
-  pytest:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    env_file:
-      - ./src/.test-env
-    depends_on:
-      - db
-      - redis
-    command: python -m pytest --cov=src --cov-report=term-missing ./tests
-    volumes:
-      - .:/code
+#  pytest:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#    env_file:
+#      - ./src/.test-env
+#    depends_on:
+#      - db
+#      - redis
+#    command: python -m pytest --cov=src --cov-report=term-missing ./tests
+#    volumes:
+#      - .:/code
 
 volumes:
   postgres-data:
   redis-data:
-  #pgadmin-data:

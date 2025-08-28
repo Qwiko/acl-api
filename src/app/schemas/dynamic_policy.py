@@ -1,20 +1,21 @@
 from typing import Annotated, List, Optional
 
-from pydantic import BaseModel, Field, PositiveInt, field_validator
-
+from pydantic import BaseModel, Field, PositiveInt, StrictBool, field_validator
 
 from ..core.schemas import TimestampSchema
-from .custom_validators import EnsureListUnique
 from ..models.dynamic_policy import DynamicPolicyDefaultActionEnum, DynamicPolicyFilterActionEnum
+from .custom_validators import EnsureListUnique
 
 
 class DynamicPolicyBase(BaseModel):
     name: str  # Annotated[str, Field(min_length=2, max_length=30, examples=["This is my DynamicPolicy name"])]
-    comment: Annotated[str | None, Field(max_length=100, examples=["This is my Dynamicpolicy comment"], default=None)]
+    comment: Annotated[str | None, Field(max_length=100, examples=["This is my dynamic policy comment"], default=None)]
 
 
 class DynamicPolicyRead(TimestampSchema, DynamicPolicyBase):
     id: PositiveInt
+    
+    edited: StrictBool
 
     filter_action: Optional[DynamicPolicyFilterActionEnum]
 
@@ -33,7 +34,7 @@ class DynamicPolicyRead(TimestampSchema, DynamicPolicyBase):
 
 class DynamicPolicyReadBrief(TimestampSchema, DynamicPolicyBase):
     id: PositiveInt
-
+    edited: StrictBool
 
 class DynamicPolicyCreated(TimestampSchema, DynamicPolicyBase):
     id: PositiveInt

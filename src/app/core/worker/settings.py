@@ -1,8 +1,8 @@
 from arq.connections import RedisSettings
 
-from ...core.config import settings
-from .functions import deploy_proxmox_nft, deploy_netmiko, deploy_git
-from .base_functions import job_shutdown, job_startup
+from app.core.config import settings
+from app.core.worker.base_functions import job_shutdown, job_startup
+from app.core.worker.functions import deploy_git, deploy_netmiko, deploy_proxmox_nft
 
 REDIS_QUEUE_HOST = settings.REDIS_QUEUE_HOST
 REDIS_QUEUE_PORT = settings.REDIS_QUEUE_PORT

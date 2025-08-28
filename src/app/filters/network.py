@@ -1,12 +1,10 @@
 from typing import Optional
 
-
-from pydantic import IPvAnyNetwork
-
 from fastapi_filter import FilterDepends, with_prefix
 from fastapi_filter.contrib.sqlalchemy import Filter
+from pydantic import IPvAnyNetwork
 
-from ..models import Network, NetworkAddress
+from app.models import Network, NetworkAddress
 
 
 class NetworkAddressFilter(Filter):

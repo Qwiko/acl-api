@@ -1,4 +1,5 @@
-from ...models import (
+from app.core.utils.crud import BaseCRUD
+from app.models import (
     Deployer,
     Deployment,
     DynamicPolicy,
@@ -13,7 +14,6 @@ from ...models import (
     Test,
     TestCase,
 )
-from ..utils.crud import BaseCRUD
 
 policy_crud = BaseCRUD(Policy)
 

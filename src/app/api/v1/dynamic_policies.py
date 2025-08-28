@@ -7,13 +7,13 @@ from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...core.cruds import dynamic_policy_crud
-from ...core.db.database import async_get_db
-from ...core.exceptions.http_exceptions import NotFoundException
-from ...core.security import User, get_current_user
-from ...filters.dynamic_policy import DynamicPolicyFilter
-from ...models import DynamicPolicy
-from ...schemas.dynamic_policy import (
+from app.core.cruds import dynamic_policy_crud
+from app.core.db.database import async_get_db
+from app.core.exceptions.http_exceptions import NotFoundException
+from app.core.security import User, get_current_user
+from app.filters.dynamic_policy import DynamicPolicyFilter
+from app.models import DynamicPolicy
+from app.schemas.dynamic_policy import (
     DynamicPolicyCreate,
     DynamicPolicyCreated,
     DynamicPolicyRead,
@@ -43,7 +43,7 @@ async def write_policy(
     current_user: Annotated[User, Security(get_current_user, scopes=["dynamic_policies:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
-    policy = await dynamic_policy_crud.create(db, values)
+    policy = await dynamic_policy_crud.create(db, values, extra_data={"edited": True})
     return policy
 
 
@@ -66,7 +66,7 @@ async def put_policy(
     current_user: Annotated[User, Security(get_current_user, scopes=["dynamic_policies:write"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
-    policy = await dynamic_policy_crud.update(db, dynamic_policy_id, values)
+    policy = await dynamic_policy_crud.update(db, dynamic_policy_id, values, extra_data={"edited": True})
     return policy
 
 

@@ -9,13 +9,13 @@ from sqlalchemy import and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...core.cruds import network_crud, policy_crud, service_crud
-from ...core.db.database import async_get_db
-from ...core.exceptions.http_exceptions import NotFoundException
-from ...core.security import User, get_current_user
-from ...filters.policy import PolicyFilter
-from ...models import Policy, PolicyTerm, Target, Test
-from ...schemas.policy import (
+from app.core.cruds import network_crud, policy_crud, service_crud
+from app.core.db.database import async_get_db
+from app.core.exceptions.http_exceptions import NotFoundException
+from app.core.security import User, get_current_user
+from app.filters.policy import PolicyFilter
+from app.models import Policy, PolicyTerm, Target, Test
+from app.schemas.policy import (
     PolicyCreate,
     PolicyCreated,
     PolicyRead,
@@ -63,7 +63,7 @@ async def write_policy(
     del values.terms
 
     # Create the new policy
-    policy = Policy(**values.model_dump())
+    policy = Policy(**values.model_dump(), edited=True)
 
     # Fetch related targets and tests
     targets_db = await db.execute(select(Target).where(Target.id.in_(targets)))
@@ -80,21 +80,81 @@ async def write_policy(
             raise RequestValidationError([{"loc": ["body", "terms"], "msg": "Term names must be unique"}])
 
     # Process terms
-    for term_data in terms:
+    # for term_data in terms:
+    #     # Check if the nested policy exists
+    #     if isinstance(term_data, PolicyTermNestedCreate):
+    #         nested_policy_db = await db.execute(select(Policy).where(Policy.id == term_data.nested_policy_id))
+    #         if not nested_policy_db.scalars().first():
+    #             raise RequestValidationError([{"loc": ["body", "nested_policy_id"], "msg": "Nested policy not found"}])
+
+    #     # Merge Nested and Regular Terms
+    #     empty_term = PolicyTermCreate.model_construct()
+    #     nested_empty_term = PolicyTermNestedCreate.model_construct()
+
+    #     merged = {**empty_term.model_dump(), **nested_empty_term.model_dump(), **term_data.model_dump()}
+
+    #     term = PolicyTerm(**merged, policy=policy, policy_id=policy.id)
+        
+    for idx, term in enumerate(terms):
         # Check if the nested policy exists
-        if isinstance(term_data, PolicyTermNestedCreate):
-            nested_policy_db = await db.execute(select(Policy).where(Policy.id == term_data.nested_policy_id))
+        if isinstance(term, PolicyTermNestedCreate):
+            nested_policy_db = await db.execute(select(Policy).where(Policy.id == term.nested_policy_id))
             if not nested_policy_db.scalars().first():
-                raise RequestValidationError([{"loc": ["body", "nested_policy_id"], "msg": "Nested policy not found"}])
+                raise RequestValidationError([{"loc": ["body", f"terms[{idx}].nested_policy_id"], "msg": "Nested policy not found"}])
 
-        # Merge Nested and Regular Terms
-        empty_term = PolicyTermCreate.model_construct()
-        nested_empty_term = PolicyTermNestedCreate.model_construct()
 
-        merged = {**empty_term.model_dump(), **nested_empty_term.model_dump(), **term_data.model_dump()}
+            new_term = PolicyTerm(
+                **term.model_dump(),
+                policy=policy,
+                policy_id=policy.id,
+                negate_source_networks=None,
+                negate_destination_networks=None,
+                source_networks=[],
+                destination_networks=[],
+                source_services=[],
+                destination_services=[],
+                action=None,
+                option=None,
+                logging=None,
+            )
 
-        term = PolicyTerm(**merged, policy=policy, policy_id=policy.id)
-        policy.terms.append(term)
+        elif isinstance(term, PolicyTermCreate):
+            if term.negate_source_networks and not term.source_networks:
+                term.negate_source_networks = False
+
+            if term.negate_destination_networks and not term.destination_networks:
+                term.negate_destination_networks = False
+
+            # Search up nested destination and source networks/services
+            source_networks = await network_crud.get_all(
+                db, load_relations=False, filter_by={"id": term.source_networks}
+            )
+            destination_networks = await network_crud.get_all(
+                db, load_relations=False, filter_by={"id": term.destination_networks}
+            )
+            source_services = await service_crud.get_all(
+                db, load_relations=False, filter_by={"id": term.source_services}
+            )
+            destination_services = await service_crud.get_all(
+                db, load_relations=False, filter_by={"id": term.destination_services}
+            )
+
+            del term.source_networks
+            del term.destination_networks
+            del term.source_services
+            del term.destination_services
+
+            new_term = PolicyTerm(
+                **term.model_dump(),
+                policy=policy,
+                policy_id=policy.id,
+                source_networks=source_networks,
+                destination_networks=destination_networks,
+                source_services=source_services,
+                destination_services=destination_services,
+            )
+
+        policy.terms.append(new_term)
 
     db.add(policy)
     await db.commit()
@@ -159,6 +219,9 @@ async def put_policy(
     # Clear existing terms and add new ones
     for term in list(policy.terms):
         await db.delete(term)
+    
+    # Set edited=True    
+    policy.edited=True
     await db.flush()
 
     for idx, term in enumerate(terms):

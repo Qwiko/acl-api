@@ -6,13 +6,13 @@ from fastapi.exceptions import HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...core.config import settings
-from ...core.db.database import async_get_db
-from ...core.exceptions.http_exceptions import UnauthorizedException
-from ...core.security import (
+from app.core.config import settings
+from app.core.db.database import async_get_db
+from app.core.exceptions.http_exceptions import UnauthorizedException
+from app.core.security import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
-    User,
     Token,
+    User,
     authenticate_user,
     create_access_token,
     fake_users_db,

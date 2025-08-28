@@ -11,7 +11,8 @@ from git import Repo
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from ....models import Deployer, DeployerGitConfig, RevisionConfig
+from app.models import Deployer, DeployerGitConfig, RevisionConfig
+from app.version import __title__
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
@@ -35,8 +36,15 @@ async def deploy_git(ctx: Worker, revision_id: int, deployer_id: int, *args, **k
     folder_path = deployer.config.folder_path
 
     # Get from environment
-    ssh_key = os.environ.get(deployer.config.ssh_key_envvar)
-    auth_token = os.environ.get(deployer.config.auth_token_envvar)
+    if deployer.config.ssh_key_envvar:
+        ssh_key = os.environ.get(deployer.config.ssh_key_envvar)
+    else:
+        ssh_key = None
+    
+    if deployer.config.auth_token_envvar:
+        auth_token = os.environ.get(deployer.config.auth_token_envvar)
+    else:
+        auth_token = None
 
     if not ssh_key and not auth_token:
         logger.error("No SSH key or auth token found in environment variables.")
@@ -72,7 +80,11 @@ async def deploy_git(ctx: Worker, revision_id: int, deployer_id: int, *args, **k
             # Step 4: Clone the repo
             logger.info("Cloning repository %s into %s", repo_url, base_folder)
             repo = Repo.clone_from(repo_url, base_folder, env={"GIT_SSH_COMMAND": ssh_cmd}, branch=branch, depth=2)
-
+            
+            # Set username and email
+            with repo.config_writer() as git_config:
+                git_config.set_value("user", "name", __title__)
+            
             # Update the acl-file from the revision config
             # Assuming the acl-file is in the root of the repository
             logger.info("Updating acl-file %s", revision_config.filename)

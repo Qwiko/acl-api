@@ -6,6 +6,7 @@ from aerleon.aclgen import ACLGeneratorError
 from aerleon.api import Generate
 from aerleon.lib import naming
 from fastapi import HTTPException
+from netutils.lib_mapper import AERLEON_LIB_MAPPER_REVERSE
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -300,14 +301,14 @@ async def get_policy_and_definitions_from_policy(
     else:
         inet_mode = target.inet_mode if target.inet_mode else ""
 
+        target_generator = AERLEON_LIB_MAPPER_REVERSE.get(target.generator, target.generator)
+        
         # Cisco default mode is extended.
-        if inet_mode == "inet" and target.generator in ["cisco", "cisconx"]:
+        if inet_mode == "inet" and target_generator in ["cisco", "cisconx"]:
             inet_mode = "extended"
 
-        if target.generator == "nftables":
-            target_dict = {target.generator: f"{inet_mode} input"}
-        else:
-            target_dict = {target.generator: f"{filter_name} {inet_mode}"}
+
+        target_dict = {target_generator: f"{filter_name} {inet_mode}"}
 
     # Not sure if this is needed. Fetched all expanded terms before this function is called.
     expanded_terms = await get_expanded_terms(db, terms)

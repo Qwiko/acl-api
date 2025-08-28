@@ -5,7 +5,8 @@ from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy_mixins.timestamp import TimestampsMixin
 
-from ..core.db.database import Base
+from app.models.base import Base
+
 from .dynamic_policy import DynamicPolicy
 from .policy import Policy
 

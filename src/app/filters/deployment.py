@@ -2,7 +2,7 @@ from typing import Optional
 
 from fastapi_filter.contrib.sqlalchemy import Filter
 
-from ..models import Deployment
+from app.models import Deployment
 
 
 class DeploymentFilter(Filter):

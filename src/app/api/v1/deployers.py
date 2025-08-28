@@ -11,14 +11,14 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import and_
 
-from ...core.cruds import deployer_crud, target_crud
-from ...core.db.database import async_get_db
-from ...core.exceptions.http_exceptions import NotFoundException
-from ...core.security import User, get_current_user
-from ...filters.deployer import DeployerFilter
-from ...models import Deployer
-from ...models.deployer import DeployerConfig, DeployerGitConfig, DeployerNetmikoConfig, DeployerProxmoxNftConfig
-from ...schemas.deployer import DeployerCreate, DeployerModeEnum, DeployerRead, DeployerReadBrief, DeployerUpdate
+from app.core.cruds import deployer_crud, target_crud
+from app.core.db.database import async_get_db
+from app.core.exceptions.http_exceptions import NotFoundException
+from app.core.security import User, get_current_user
+from app.filters.deployer import DeployerFilter
+from app.models import Deployer
+from app.models.deployer import DeployerConfig, DeployerGitConfig, DeployerNetmikoConfig, DeployerProxmoxNftConfig
+from app.schemas.deployer import DeployerCreate, DeployerModeEnum, DeployerRead, DeployerReadBrief, DeployerUpdate
 
 router = APIRouter(tags=["deployers"])
 

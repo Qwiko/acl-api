@@ -2,7 +2,7 @@ from typing import Optional
 
 from fastapi_filter.contrib.sqlalchemy import Filter
 
-from ..models import Policy, PolicyTerm
+from app.models import Policy, PolicyTerm
 
 
 class PolicyFilter(Filter):
@@ -15,6 +15,8 @@ class PolicyFilter(Filter):
     name__ilike: Optional[str] = None
     name__like: Optional[str] = None
     name__neq: Optional[str] = None
+
+    edited: Optional[bool] = None
 
     order_by: list[str] = ["id"]
 

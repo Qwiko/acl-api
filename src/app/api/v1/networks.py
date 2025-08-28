@@ -11,15 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.sql import and_, exists, or_
 
-from ...core.cruds import address_crud, network_crud
-from ...core.db.database import async_get_db
-from ...core.exceptions.http_exceptions import NotFoundException
-from ...core.security import User, get_current_user
-from ...filters.network import NetworkFilter
-from ...models import DynamicPolicy, Network, NetworkAddress, PolicyTerm
-from ...models.dynamic_policy import DynamicPolicyDestinationFilterAssociation, DynamicPolicySourceFilterAssociation
-from ...models.policy import PolicyTermDestinationNetworkAssociation, PolicyTermSourceNetworkAssociation
-from ...schemas.network import (
+from app.core.cruds import address_crud, network_crud
+from app.core.db.database import async_get_db
+from app.core.exceptions.http_exceptions import NotFoundException
+from app.core.security import User, get_current_user
+from app.filters.network import NetworkFilter
+from app.models import DynamicPolicy, Network, NetworkAddress, PolicyTerm
+from app.models.dynamic_policy import DynamicPolicyDestinationFilterAssociation, DynamicPolicySourceFilterAssociation
+from app.models.policy import PolicyTermDestinationNetworkAssociation, PolicyTermSourceNetworkAssociation
+from app.schemas.network import (
     NetworkCreate,
     NetworkCreated,
     NetworkRead,

@@ -4,7 +4,7 @@ from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy_mixins.timestamp import TimestampsMixin
 
-from ..core.db.database import Base
+from app.models.base import Base
 
 if TYPE_CHECKING:
     from .deployer import Deployer

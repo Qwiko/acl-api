@@ -10,7 +10,7 @@ from paramiko.ssh_exception import NoValidConnectionsError
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from ....models import Deployer, DeployerProxmoxNftConfig, RevisionConfig
+from app.models import Deployer, DeployerProxmoxNftConfig, RevisionConfig
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 

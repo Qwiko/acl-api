@@ -7,19 +7,20 @@ from fastapi_filter import FilterDepends
 from fastapi_pagination import Page
 from fastapi_pagination import paginate as dict_paginate
 from fastapi_pagination.ext.sqlalchemy import paginate
+from netutils.lib_mapper import AERLEON_LIB_MAPPER
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...core.cruds import target_crud
-from ...core.db.database import async_get_db
-from ...core.exceptions.http_exceptions import NotFoundException
-from ...core.security import User, get_current_user
-from ...filters.target import TargetFilter, TargetGeneratorFilter
-from ...models import Target, TargetReplacement
-from ...schemas.target import TargetCreate, TargetRead, TargetUpdate
-from .dynamic_policies import dynamic_policy_crud
-from .policies import policy_crud
+from app.api.v1.dynamic_policies import dynamic_policy_crud
+from app.api.v1.policies import policy_crud
+from app.core.cruds import target_crud
+from app.core.db.database import async_get_db
+from app.core.exceptions.http_exceptions import NotFoundException
+from app.core.security import User, get_current_user
+from app.filters.target import TargetFilter, TargetGeneratorFilter
+from app.models import Target, TargetReplacement
+from app.schemas.target import TargetCreate, TargetRead, TargetUpdate
 
 router = APIRouter(tags=["targets"])
 
@@ -35,21 +36,21 @@ async def read_target_generators(
     current_user: Annotated[User, Security(get_current_user, scopes=["targets:read"])],
     tg_filter: TargetGeneratorFilter = FilterDepends(TargetGeneratorFilter),
 ) -> Any:
-    id__in = tg_filter.id__in if tg_filter.id__in else [a[0] for a in BUILTIN_GENERATORS]
+    id__in = tg_filter.id__in if tg_filter.id__in else [AERLEON_LIB_MAPPER.get(a[0], a[0]) for a in BUILTIN_GENERATORS]
 
     generator_list = sorted(
         [
-            {"id": val[0], "name": val[2]}
+            {"id": AERLEON_LIB_MAPPER.get(val[0], val[0]), "name": val[2]}
             for val in BUILTIN_GENERATORS
-            if tg_filter.q.lower() in val[2].lower() and val[0] in id__in
+            if tg_filter.q.lower() in val[2].lower() and AERLEON_LIB_MAPPER.get(val[0], val[0]) in id__in
         ],
         key=lambda x: x[tg_filter.order_by[0].strip("+").strip("-")],
     )
     if tg_filter.name:
-        generator_list = [d for d in generator_list if d["name"] == tg_filter.name]
+        generator_list = [d for d in generator_list if d.get("name") == tg_filter.name]
 
     if tg_filter.id:
-        generator_list = [d for d in generator_list if d["id"] == tg_filter.id]
+        generator_list = [d for d in generator_list if d.get("id") == tg_filter.id]
 
     from fastapi_pagination.utils import disable_installed_extensions_check
 
@@ -162,7 +163,6 @@ async def put_targets(
     await db.refresh(target)
 
     return target
-
 
 
 @router.delete("/targets/{id}")

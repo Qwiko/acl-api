@@ -1,12 +1,13 @@
 from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
 
+from sqlalchemy import Boolean, ForeignKey, String
 from sqlalchemy import Enum as SQLAlchemyEnum
-from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy_mixins.timestamp import TimestampsMixin
 
-from ..core.db.database import Base
+from app.models.base import Base
+
 from .network import Network
 
 if TYPE_CHECKING:
@@ -42,6 +43,9 @@ class DynamicPolicy(Base, TimestampsMixin):
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
 
     name: Mapped[str] = mapped_column(String)
+
+    edited: Mapped[bool] = mapped_column(Boolean)
+
     comment: Mapped[Optional[str]] = mapped_column(String)
 
     filter_action: Mapped[Optional[DynamicPolicyFilterActionEnum]] = mapped_column(

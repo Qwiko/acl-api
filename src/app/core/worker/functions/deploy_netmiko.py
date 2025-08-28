@@ -7,10 +7,11 @@ import uvloop
 from arq.worker import Worker
 from netmiko import ConnectHandler, SSHDetect
 from netmiko.exceptions import NetmikoAuthenticationException, NetmikoTimeoutException
+from netutils.lib_mapper import NETMIKO_LIB_MAPPER_REVERSE
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from ....models import Deployer, DeployerNetmikoConfig, RevisionConfig
+from app.models import Deployer, DeployerNetmikoConfig, RevisionConfig
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
@@ -72,19 +73,10 @@ async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args,
         "verbose": True,
     }
 
-    # Mapping aerleon generators to netmiko types
-    # Fallback to SSHDetect if we havent setup the mapping yet
-    generator_netmiko_mapping = {
-        "cisco": "cisco_ios",
-        "ciscoasa": "cisco_asa",
-        "cisconx": "cisco_nxos",
-        "ciscoxr": "cisco_xr",
-    }
-
     try:
-        generator_netmiko_type = generator_netmiko_mapping.get(generator)
+        generator_netmiko_type = NETMIKO_LIB_MAPPER_REVERSE.get(generator)
         if generator_netmiko_type:
-            logger.info("Found device type from generator mapping: %s", generator_netmiko_type)
+            logger.info("Found device type from NETMIKO_MAPPER: %s", generator_netmiko_type)
             network_device["device_type"] = generator_netmiko_type
         else:
             logger.info("Using SSHDetect to detect device type")
@@ -112,6 +104,7 @@ async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args,
         if api_url and generator in ["cisco"]:
             logger.info("Trying to get acl from remote API")
 
+            # TODO add some generic function here to copy over the acl.
             output = net_connect.send_command(
                 f"copy {api_url}/revisions/{revision_id}/raw_config/{target_id} running-config",
                 expect_string=r"Destination filename",
@@ -124,7 +117,7 @@ async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args,
                 command_string="\n", expect_string=r"#", read_timeout=60, strip_prompt=False, strip_command=False
             )
             logger.info(output)
-        elif api_url and generator in ["cisconx"]:
+        elif api_url and generator in ["cisco_nxos"]:
             logger.info("Trying to get acl from remote API")
 
             output = net_connect.send_command(

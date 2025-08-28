@@ -1,11 +1,11 @@
+from collections import defaultdict
 from typing import Optional
 
 from fastapi_filter.base.filter import BaseFilterModel
 from fastapi_filter.contrib.sqlalchemy import Filter
-
-from ..models import Target
 from pydantic import ValidationInfo, field_validator
-from collections import defaultdict
+
+from app.models import Target
 
 
 class TargetGeneratorFilter(BaseFilterModel):

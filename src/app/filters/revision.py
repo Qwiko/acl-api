@@ -3,8 +3,8 @@ from typing import Optional
 from fastapi_filter import FilterDepends, with_prefix
 from fastapi_filter.contrib.sqlalchemy import Filter
 
-from ..models import Revision, RevisionConfig
-from .target import TargetFilter
+from app.filters.target import TargetFilter
+from app.models import Revision, RevisionConfig
 
 
 class RevisionConfigFilter(Filter):

@@ -9,24 +9,24 @@ from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...core.config import settings
-from ...core.cruds import deployer_crud, dynamic_policy_crud, policy_crud, revision_crud
-from ...core.db.database import async_get_db
-from ...core.exceptions.http_exceptions import NotFoundException
-from ...core.security import User, get_current_user
-from ...core.utils import queue
-from ...core.utils.dynamic_policy_helpers import fetch_addresses, fetch_networks, fetch_terms
-from ...core.utils.generate import generate_acl_from_policy, get_expanded_terms
-from ...filters.revision import RevisionFilter
-from ...models import (
+from app.core.config import settings
+from app.core.cruds import deployer_crud, dynamic_policy_crud, policy_crud, revision_crud
+from app.core.db.database import async_get_db
+from app.core.exceptions.http_exceptions import NotFoundException
+from app.core.security import User, get_current_user
+from app.core.utils import queue
+from app.core.utils.dynamic_policy_helpers import fetch_addresses, fetch_networks, fetch_terms
+from app.core.utils.generate import generate_acl_from_policy, get_expanded_terms
+from app.filters.revision import RevisionFilter
+from app.models import (
     Deployment,
     Policy,
     Revision,
     RevisionConfig,
 )
-from ...schemas.dynamic_policy import DynamicPolicyRead
-from ...schemas.policy import PolicyRead, PolicyTermRead
-from ...schemas.revision import (
+from app.schemas.dynamic_policy import DynamicPolicyRead
+from app.schemas.policy import PolicyRead, PolicyTermRead
+from app.schemas.revision import (
     DynamicPolicyRevisionCreate,
     DynamicPolicyRevisionRead,
     DynamicPolicyRevisionReadBrief,
@@ -34,6 +34,7 @@ from ...schemas.revision import (
     PolicyRevisionRead,
     PolicyRevisionReadBrief,
 )
+
 from .tests import get_tests_run
 
 router = APIRouter(tags=["revisions"])
@@ -81,11 +82,21 @@ async def write_revision(
     coverage = test_dict.get("coverage", 0.0)
     if coverage < settings.REVISON_NEEDED_COVERAGE:
         raise HTTPException(
-            status_code=403, detail=f"Test coverage {round(coverage*100)}% is lower than the required {settings.REVISON_NEEDED_COVERAGE}%"
+            status_code=403,
+            detail=f"Test coverage {round(coverage*100)}% is lower than the required {settings.REVISON_NEEDED_COVERAGE}%",
         )
 
     if isinstance(values, DynamicPolicyRevisionCreate):
         dynamic_policy = await dynamic_policy_crud.get(db, values.dynamic_policy_id, load_relations=True)
+
+        if dynamic_policy is None:
+            raise NotFoundException("Dynamic policy not found")
+        
+        if not dynamic_policy.targets:
+            raise HTTPException(status_code=403, detail="No targets found for dynamic policy")
+        # Set edited=False
+        dynamic_policy.edited = False
+
         source_addresses = (
             await fetch_addresses(db, dynamic_policy.source_filters_ids) if dynamic_policy.source_filters_ids else []
         )
@@ -156,6 +167,9 @@ async def write_revision(
         if policy is None:
             raise NotFoundException("Policy not found")
 
+        # Set edited=False
+        policy.edited = False
+
         policy_pydantic_model = PolicyRead.model_validate(policy, from_attributes=True)
 
         policy_json_data = policy_pydantic_model.model_dump_json()
@@ -193,7 +207,7 @@ async def write_revision(
                     revision=revision,
                 )
             )
-
+    #
     await db.commit()
     await db.refresh(revision)
 
@@ -237,16 +251,16 @@ async def erase_revision(
     await revision_crud.delete(db, revision_id)
     return {"message": "Revision deleted"}
 
+
 # TODO
 # Add some other auth mechanic for network equipment to use.
 
-@router.get(
-    "/revisions/{revision_id}/raw_config/{target_id}", response_class=PlainTextResponse
-)
+
+@router.get("/revisions/{revision_id}/raw_config/{target_id}", response_class=PlainTextResponse)
 async def read_revision_config_raw(
     revision_id: int,
     target_id: int,
-    #current_user: Annotated[User, Security(get_current_user, scopes=["revisions:read"])],
+    # current_user: Annotated[User, Security(get_current_user, scopes=["revisions:read"])],
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     """

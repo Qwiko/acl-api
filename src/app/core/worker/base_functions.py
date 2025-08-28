@@ -3,13 +3,12 @@ from datetime import datetime, timezone
 from functools import wraps
 from io import StringIO
 
-from arq.worker import Worker
 from arq.jobs import Job, JobDef
+from arq.worker import Worker
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...models import Deployment
-
-from ..db.database import local_session
+from app.core.db.database import local_session
+from app.models import Deployment
 
 additional_loggers = [
     "base_functions",
