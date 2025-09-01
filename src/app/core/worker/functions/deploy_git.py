@@ -84,6 +84,7 @@ async def deploy_git(ctx: Worker, revision_id: int, deployer_id: int, *args, **k
             # Set username and email
             with repo.config_writer() as git_config:
                 git_config.set_value("user", "name", __title__)
+                git_config.set_value("user", "email", "acl-api@dev.se")
             
             # Update the acl-file from the revision config
             # Assuming the acl-file is in the root of the repository
