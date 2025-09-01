@@ -6,6 +6,32 @@ ACL generator API build on [Aerleon](https://aerleon.readthedocs.io/en/latest/).
 
 To provide type checking in your code editor a local venv is recommended. 
 
+Add environment variables to src/.env.
+Copy from src/.env.example
+```bash 
+# File: src/.env
+# ------------- app settings -------------
+REVISON_NEEDED_COVERAGE=0
+
+# ------------- database -------------
+POSTGRES_USER="postgres"
+POSTGRES_PASSWORD="postgres"
+POSTGRES_SERVER="db" # default "localhost", if using docker compose you should use "db"
+POSTGRES_PORT=5432
+POSTGRES_DB="postgres"
+
+# ------------- redis cache-------------
+REDIS_CACHE_HOST="redis" # default "localhost", if using docker compose you should use "redis"
+REDIS_CACHE_PORT=6379
+
+# ------------- redis queue -------------
+REDIS_QUEUE_HOST="redis" # default "localhost", if using docker compose you should use "redis"
+REDIS_QUEUE_PORT=6379
+
+# If using deployers and workers this needs to point to the API.
+API_URL="http://127.0.0.1:8000/api/v1"
+```
+
 ### Local
 ```bash
 #Install poetry
