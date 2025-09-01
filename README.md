@@ -1,6 +1,6 @@
 # ACL API
 
-ACL generator API build on [Aerleon](https://aerleon.readthedocs.io/en/latest/).
+ACL generator API built on [Aerleon](https://aerleon.readthedocs.io/en/latest/).
 
 ## Development environment
 
