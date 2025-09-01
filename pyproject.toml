@@ -1,4 +1,8 @@
 [tool.poetry]
+name = "acl-api"
+description = "ACL api built on aerleon"
+version = "0.0.1"
+authors = ["jakob.mellberg@gmail.com"]
 license = "MIT"
 readme = "README.md"
 packages = [{ include = "src" }]

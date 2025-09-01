@@ -185,9 +185,9 @@ def create_application(
     lifespan = lifespan_factory(settings, create_tables_on_start=create_tables_on_start)
 
     application = FastAPI(
-        version = __version__,
-        title = __title__,
-        description = __description__,
+        version=__version__,
+        title=__title__,
+        description=__description__,
         middleware=[
             Middleware(
                 CORSMiddleware,
@@ -236,4 +236,4 @@ def create_application(
 
             application.include_router(docs_router)
 
-        return application
+    return application
