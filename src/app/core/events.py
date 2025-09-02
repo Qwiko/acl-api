@@ -155,22 +155,23 @@ async def handle_policy(session: AsyncSession, obj: Policy):
 
 
 def register_events():
-    @event.listens_for(Session, "after_flush")
-    def after_flush(session: Session, flush_context):
-        async def internal_func(obj_data):
-            from app.core.db.database import async_get_db
+    pass
+    # @event.listens_for(Session, "after_flush")
+    # def after_flush(session: Session, flush_context):
+    #     async def internal_func(obj_data):
+    #         from app.core.db.database import async_get_db
 
-            async_session = await anext(async_get_db())
-            for obj in obj_data:
-                if isinstance(obj, Network):
-                    await handle_network(async_session, obj)
-                elif isinstance(obj, Service):
-                    await handle_service(async_session, obj)
-                elif isinstance(obj, Target):
-                    await handle_target(async_session, obj)
-                elif isinstance(obj, Policy):
-                    await handle_policy(async_session, obj)
-            await async_session.commit()
-            await async_session.close()
+    #         async_session = await anext(async_get_db())
+    #         for obj in obj_data:
+    #             if isinstance(obj, Network):
+    #                 await handle_network(async_session, obj)
+    #             elif isinstance(obj, Service):
+    #                 await handle_service(async_session, obj)
+    #             elif isinstance(obj, Target):
+    #                 await handle_target(async_session, obj)
+    #             elif isinstance(obj, Policy):
+    #                 await handle_policy(async_session, obj)
+    #         await async_session.commit()
+    #         await async_session.close()
 
-        asyncio.create_task(internal_func(session.new.union(session.dirty).union(session.deleted)))
+    #     asyncio.create_task(internal_func(session.new.union(session.dirty).union(session.deleted)))
