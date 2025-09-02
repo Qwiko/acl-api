@@ -30,18 +30,18 @@ class TargetPolicyAssociation(Base):
     target_id: Mapped[int] = mapped_column(ForeignKey("targets.id"), primary_key=True)
     policy_id: Mapped[int] = mapped_column(ForeignKey("policies.id"), primary_key=True)
 
-class TargetReplacement(Base):
-    __tablename__ = "target_replacements"
+
+class TargetSubstitution(Base):
+    __tablename__ = "target_substitutions"
     id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
-    
+
     target_id: Mapped[int] = mapped_column(ForeignKey("targets.id"), init=False)
-    target: Mapped["Target"] = relationship(
-        "Target", foreign_keys=[target_id], back_populates="replacements"
-    )
-    
+    target: Mapped["Target"] = relationship("Target", foreign_keys=[target_id], back_populates="substitutions")
+
     pattern: Mapped[str] = mapped_column(String, default="", nullable=False)
     replacement: Mapped[str] = mapped_column(String, default="", nullable=False)
-    
+
+
 class Target(Base, TimestampsMixin):
     __tablename__ = "targets"
 
@@ -74,9 +74,9 @@ class Target(Base, TimestampsMixin):
         cascade="all, delete",
         init=False,
     )
-    
-    replacements: Mapped[List["TargetReplacement"]] = relationship(
-        foreign_keys="TargetReplacement.target_id",
+
+    substitutions: Mapped[List["TargetSubstitution"]] = relationship(
+        foreign_keys="TargetSubstitution.target_id",
         lazy="selectin",
         back_populates="target",
         cascade="all, delete-orphan",

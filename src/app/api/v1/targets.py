@@ -19,7 +19,7 @@ from app.core.db.database import async_get_db
 from app.core.exceptions.http_exceptions import NotFoundException
 from app.core.security import User, get_current_user
 from app.filters.target import TargetFilter, TargetGeneratorFilter
-from app.models import Target, TargetReplacement
+from app.models import Target, TargetSubstitution
 from app.schemas.target import TargetCreate, TargetRead, TargetUpdate
 
 router = APIRouter(tags=["targets"])
@@ -88,11 +88,11 @@ async def write_target(
     )
     policies = await policy_crud.get_all(db, load_relations=False, filter_by={"id": values.policies})
 
-    replacements = values.replacements
+    substitutions = values.substitutions
 
     del values.dynamic_policies
     del values.policies
-    del values.replacements
+    del values.substitutions
 
     target = await target_crud.create(
         db,
@@ -101,7 +101,9 @@ async def write_target(
 
     target.dynamic_policies = dynamic_policies
     target.policies = policies
-    target.replacements = [TargetReplacement(target=target, **replacement.model_dump()) for replacement in replacements]
+    target.substitutions = [
+        TargetSubstitution(target=target, **substitution.model_dump()) for substitution in substitutions
+    ]
 
     await db.commit()
     await db.refresh(target)
@@ -143,11 +145,11 @@ async def put_targets(
     )
     policies = await policy_crud.get_all(db, load_relations=False, filter_by={"id": values.policies})
 
-    replacements = values.replacements
+    substitutions = values.substitutions
 
     del values.dynamic_policies
     del values.policies
-    del values.replacements
+    del values.substitutions
 
     target = await target_crud.update(
         db,
@@ -157,7 +159,9 @@ async def put_targets(
 
     target.dynamic_policies = dynamic_policies
     target.policies = policies
-    target.replacements = [TargetReplacement(target=target, **replacement.model_dump()) for replacement in replacements]
+    target.substitutions = [
+        TargetSubstitution(target=target, **substitution.model_dump()) for substitution in substitutions
+    ]
 
     await db.commit()
     await db.refresh(target)

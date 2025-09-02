@@ -292,7 +292,11 @@ def get_aerleon_terms(terms: List[PolicyTerm], protocol_map) -> List[dict]:
 
 
 async def get_policy_and_definitions_from_policy(
-    db: AsyncSession, policy: Union[Policy, DynamicPolicy], terms: List[PolicyTerm], target: Target = None, default_action: str = None
+    db: AsyncSession,
+    policy: Union[Policy, DynamicPolicy],
+    terms: List[PolicyTerm],
+    target: Target = None,
+    default_action: str = None,
 ) -> Tuple[Any, Any]:
     filter_name = policy.valid_name
 
@@ -303,7 +307,7 @@ async def get_policy_and_definitions_from_policy(
         inet_mode = target.inet_mode if target.inet_mode else ""
 
         target_generator = AERLEON_LIB_MAPPER_REVERSE.get(target.generator, target.generator)
-        
+
         # Cisco default mode is extended.
         if inet_mode == "inet" and target_generator in ["cisco", "cisconx"]:
             inet_mode = "extended"
@@ -328,10 +332,12 @@ async def get_policy_and_definitions_from_policy(
         copy_terms_arr = terms_arr.copy()
         terms_arr = []
         for term in copy_terms_arr:
-            if term.get("option") == PolicyOptionEnum.ESTABLISHED or term.get("option") == PolicyOptionEnum.TCP_ESTABLISHED:
+            if (
+                term.get("option") == PolicyOptionEnum.ESTABLISHED
+                or term.get("option") == PolicyOptionEnum.TCP_ESTABLISHED
+            ):
                 term.pop("option")
             terms_arr.append(term)
-
 
     if default_action:
         default_term = {}
@@ -374,7 +380,11 @@ async def get_policy_and_definitions_from_policy(
 
 
 async def generate_acl_from_policy(
-    db: AsyncSession, policy: Union[Policy, DynamicPolicy], terms: List[PolicyTerm], target: Target, default_action: str = None
+    db: AsyncSession,
+    policy: Union[Policy, DynamicPolicy],
+    terms: List[PolicyTerm],
+    target: Target,
+    default_action: str = None,
 ) -> Tuple[str, str]:
     """
     Input Policy and Target
@@ -391,10 +401,10 @@ async def generate_acl_from_policy(
 
     filename = configs.keys()[0]
     config = configs[filename]
-    
+
     # Run all regex substitutions on the config
-    for replacement in target.replacements:
-        config = re.sub(replacement.pattern, replacement.replacement, config, flags=re.MULTILINE)
+    for substitution in target.substitutions:
+        config = re.sub(substitution.pattern, substitution.replacement, config, flags=re.MULTILINE)
 
     # Returning config, filter_name and filename
     return config, policy.valid_name, filename
