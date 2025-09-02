@@ -48,6 +48,8 @@ class DynamicPolicy(Base, TimestampsMixin):
 
     comment: Mapped[Optional[str]] = mapped_column(String)
 
+    custom_aerleon_header: Mapped[Optional[str]] = mapped_column(String)
+
     filter_action: Mapped[Optional[DynamicPolicyFilterActionEnum]] = mapped_column(
         SQLAlchemyEnum(DynamicPolicyFilterActionEnum)
     )

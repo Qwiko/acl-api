@@ -10,7 +10,7 @@ from .custom_validators import EnsureListUnique
 class DynamicPolicyBase(BaseModel):
     name: str  # Annotated[str, Field(min_length=2, max_length=30, examples=["This is my DynamicPolicy name"])]
     comment: Annotated[str | None, Field(max_length=100, examples=["This is my dynamic policy comment"], default=None)]
-
+    custom_aerleon_header: Optional[str] = None
 
 class DynamicPolicyRead(TimestampSchema, DynamicPolicyBase):
     id: PositiveInt

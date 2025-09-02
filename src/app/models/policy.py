@@ -49,6 +49,8 @@ class Policy(Base, TimestampsMixin):
 
     comment: Mapped[Optional[str]] = mapped_column(String)
 
+    custom_aerleon_header: Mapped[Optional[str]] = mapped_column(String)
+
     tests: Mapped[List["Test"]] = relationship(
         secondary="test_policy_association", lazy="joined", back_populates="policies", init=False
     )
