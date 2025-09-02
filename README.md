@@ -4,7 +4,9 @@ ACL generator API built on [Aerleon](https://aerleon.readthedocs.io/en/latest/).
 
 ## Development environment
 
-To provide type checking in your code editor a local venv is recommended. 
+To provide type checking in your code editor a local venv is recommended.
+
+Default testing username is: admin, password: secret.
 
 Add environment variables to src/.env.
 Copy from src/.env.example
