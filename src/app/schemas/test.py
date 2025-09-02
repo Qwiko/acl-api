@@ -3,9 +3,9 @@ from typing import Annotated, List, Optional
 from pydantic import BaseModel, Field, PositiveInt, field_validator
 from pydantic.networks import IPvAnyAddress
 
-from ..core.schemas import TimestampSchema
-from .custom_validators import EnsureListUnique
-from .policy import PolicyTermRead, PolicyTermReadInternal
+from app.core.schemas import TimestampSchema
+from app.schemas.custom_validators import EnsureListUnique
+from app.schemas.policy import PolicyTermRead, PolicyTermReadInternal
 
 
 class TestBase(BaseModel):

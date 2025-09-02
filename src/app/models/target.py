@@ -6,12 +6,12 @@ from sqlalchemy_mixins.timestamp import TimestampsMixin
 
 from app.models.base import Base
 
-from .dynamic_policy import DynamicPolicy
-from .policy import Policy
+from app.models.dynamic_policy import DynamicPolicy
+from app.models.policy import Policy
 
 if TYPE_CHECKING:
-    from .deployer import Deployer
-    from .revision import RevisionConfig
+    from app.models.deployer import Deployer
+    from app.models.revision import RevisionConfig
 else:
     Deployer = "Deployer"
     RevisionConfig = "RevisionConfig"

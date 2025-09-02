@@ -94,14 +94,15 @@ async def write_policy(
     #     merged = {**empty_term.model_dump(), **nested_empty_term.model_dump(), **term_data.model_dump()}
 
     #     term = PolicyTerm(**merged, policy=policy, policy_id=policy.id)
-        
+
     for idx, term in enumerate(terms):
         # Check if the nested policy exists
         if isinstance(term, PolicyTermNestedCreate):
             nested_policy_db = await db.execute(select(Policy).where(Policy.id == term.nested_policy_id))
             if not nested_policy_db.scalars().first():
-                raise RequestValidationError([{"loc": ["body", f"terms[{idx}].nested_policy_id"], "msg": "Nested policy not found"}])
-
+                raise RequestValidationError(
+                    [{"loc": ["body", f"terms[{idx}].nested_policy_id"], "msg": "Nested policy not found"}]
+                )
 
             new_term = PolicyTerm(
                 **term.model_dump(),
@@ -219,9 +220,9 @@ async def put_policy(
     # Clear existing terms and add new ones
     for term in list(policy.terms):
         await db.delete(term)
-    
-    # Set edited=True    
-    policy.edited=True
+
+    # Set edited=True
+    policy.edited = True
     await db.flush()
 
     for idx, term in enumerate(terms):

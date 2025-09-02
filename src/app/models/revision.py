@@ -7,10 +7,10 @@ from sqlalchemy_mixins.timestamp import TimestampsMixin
 from app.models.base import Base
 
 if TYPE_CHECKING:
-    from .deployment import Deployment
-    from .dynamic_policy import DynamicPolicy
-    from .policy import Policy
-    from .target import Target
+    from app.models.deployment import Deployment
+    from app.models.dynamic_policy import DynamicPolicy
+    from app.models.policy import Policy
+    from app.models.target import Target
 else:
     Deployment = "Deployment"
     Target = "Target"

@@ -2,7 +2,6 @@ import asyncio
 import logging
 import os
 import tempfile
-import uuid
 from typing import Any
 
 import uvloop
@@ -40,7 +39,7 @@ async def deploy_git(ctx: Worker, revision_id: int, deployer_id: int, *args, **k
         ssh_key = os.environ.get(deployer.config.ssh_key_envvar)
     else:
         ssh_key = None
-    
+
     if deployer.config.auth_token_envvar:
         auth_token = os.environ.get(deployer.config.auth_token_envvar)
     else:
@@ -80,12 +79,12 @@ async def deploy_git(ctx: Worker, revision_id: int, deployer_id: int, *args, **k
             # Step 4: Clone the repo
             logger.info("Cloning repository %s into %s", repo_url, base_folder)
             repo = Repo.clone_from(repo_url, base_folder, env={"GIT_SSH_COMMAND": ssh_cmd}, branch=branch, depth=2)
-            
+
             # Set username and email
             with repo.config_writer() as git_config:
                 git_config.set_value("user", "name", __title__)
                 git_config.set_value("user", "email", "acl-api@dev.se")
-            
+
             # Update the acl-file from the revision config
             # Assuming the acl-file is in the root of the repository
             logger.info("Updating acl-file %s", revision_config.filename)

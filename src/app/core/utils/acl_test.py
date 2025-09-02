@@ -1,9 +1,8 @@
 from typing import List
 
 from aerleon.lib.aclcheck import AclCheck
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...models import PolicyTerm
+from app.models import PolicyTerm
 
 
 def run_tests(
@@ -16,7 +15,7 @@ def run_tests(
     sport="any",
     dport="any",
     proto="any",
-) -> PolicyTerm | None:
+) -> tuple[bool, PolicyTerm | None]:
     # Add temporary target to make FromPolicyDict work
     policy_dict["filters"][0]["header"]["targets"] = {"cisco": "test-filter"}
 

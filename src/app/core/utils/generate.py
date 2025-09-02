@@ -11,11 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from ...models import DynamicPolicy, Network, Policy, PolicyTerm, Service, Target
-from ...schemas.policy import PolicyOptionEnum
-
-# from ...crud.crud_networks import crud_networks
-# from ...crud.crud_services import crud_services, crud_service_entries
+from app.models import DynamicPolicy, Network, Policy, PolicyTerm, Service, Target
+from app.schemas.policy import PolicyOptionEnum
 
 
 def exclude_networks(excluded_networks: List):

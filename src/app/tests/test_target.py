@@ -1,11 +1,10 @@
+from faker import Faker
 from fastapi import status
 from fastapi.testclient import TestClient
-from pytest_mock import MockerFixture
 from sqlalchemy.orm import Session
+from app.tests.helpers import generators
 
-from tests.conftest import fake, override_dependency
-
-from .helpers import generators, mocks
+fake = Faker()
 
 
 def test_post_target(client: TestClient) -> None:
@@ -13,7 +12,7 @@ def test_post_target(client: TestClient) -> None:
         "/api/v1/targets",
         json={
             "name": fake.name(),
-            "generator": "cisco",
+            "generator": "cisco_ios",
         },
     )
     assert response.status_code == status.HTTP_201_CREATED
@@ -22,7 +21,7 @@ def test_post_target(client: TestClient) -> None:
         "/api/v1/targets",
         json={
             "name": "NAMETHATISDUPLICATE",
-            "generator": "cisco",
+            "generator": "cisco_ios",
         },
     )
     assert response.status_code == status.HTTP_201_CREATED
@@ -31,7 +30,7 @@ def test_post_target(client: TestClient) -> None:
         "/api/v1/targets",
         json={
             "name": "NAMETHATISDUPLICATE",
-            "generator": "cisco",
+            "generator": "cisco_ios",
         },
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -95,13 +94,13 @@ def test_update_target(db: Session, client: TestClient) -> None:
     new_name = fake.name()
 
     # Test updating a target
-    response = client.put(f"/api/v1/targets/{target.id}", json={"name": new_name, "generator": "cisco"})
+    response = client.put(f"/api/v1/targets/{target.id}", json={"name": new_name, "generator": "cisco_ios"})
     assert response.status_code == status.HTTP_200_OK
 
     # Test updating a non-existent target
     response = client.put(
         "/api/v1/targets/99999999",
-        json={"name": new_name, "generator": "cisco"},
+        json={"name": new_name, "generator": "cisco_ios"},
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 

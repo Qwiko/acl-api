@@ -31,16 +31,29 @@ async def login_for_access_token(
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username, "scopes": ["deployers:read", "deployers:write",
-                                               "deployments:read", "deployments:write",
-                                               "dynamic_policies:read", "dynamic_policies:write",
-                                               "networks:read", "networks:write",
-                                               "policies:read", "policies:write",
-                                               "revisions:read", "revisions:write",
-                                               "services:read", "services:write",
-                                               "targets:read", "targets:write",
-                                               "tests:read", "tests:write"
-                                               ]},
+        data={
+            "sub": user.username,
+            "scopes": [
+                "deployers:read",
+                "deployers:write",
+                "deployments:read",
+                "deployments:write",
+                "dynamic_policies:read",
+                "dynamic_policies:write",
+                "networks:read",
+                "networks:write",
+                "policies:read",
+                "policies:write",
+                "revisions:read",
+                "revisions:write",
+                "services:read",
+                "services:write",
+                "targets:read",
+                "targets:write",
+                "tests:read",
+                "tests:write",
+            ],
+        },
         expires_delta=access_token_expires,
     )
     return Token(access_token=access_token, token_type="bearer")

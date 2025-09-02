@@ -9,13 +9,13 @@ from sqlalchemy_mixins.timestamp import TimestampsMixin
 
 from app.models.base import Base
 
-from .network import Network
-from .service import Service
+from app.models.network import Network
+from app.models.service import Service
 
 if TYPE_CHECKING:
-    from .revision import Revision
-    from .target import Target
-    from .test import Test
+    from app.models.revision import Revision
+    from app.models.target import Target
+    from app.models.test import Test
 else:
     Target = "Target"
     Revision = "Revision"

@@ -6,13 +6,13 @@ from sqlalchemy.dialects.postgresql import CIDR
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from ...models import (
+from app.models import (
     Network,
     NetworkAddress,
     PolicyTerm,
 )
-from ...models.dynamic_policy import DynamicPolicyFilterActionEnum
-from ...models.policy import PolicyTermDestinationNetworkAssociation, PolicyTermSourceNetworkAssociation
+from app.models.dynamic_policy import DynamicPolicyFilterActionEnum
+from app.models.policy import PolicyTermDestinationNetworkAssociation, PolicyTermSourceNetworkAssociation
 
 
 def is_valid_cidr(cidr: str) -> bool:
@@ -139,9 +139,7 @@ async def fetch_terms(
     source_network_ids = {net.id for net in source_networks}
     destination_network_ids = {net.id for net in destination_networks}
 
-    stmt = (
-        select(PolicyTerm).distinct().order_by(PolicyTerm.policy_id.asc(), PolicyTerm.id.asc())
-    )  # Sort results
+    stmt = select(PolicyTerm).distinct().order_by(PolicyTerm.policy_id.asc(), PolicyTerm.id.asc())  # Sort results
 
     stmt = stmt.join(
         PolicyTermSourceNetworkAssociation,

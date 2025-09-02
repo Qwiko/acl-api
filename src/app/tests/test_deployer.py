@@ -5,7 +5,7 @@
 
 # from tests.conftest import fake, override_dependency
 
-# from .helpers import generators, mocks
+# from app.tests.helpers import generators, mocks
 
 
 # def test_post_deployer(db: Session, client: TestClient) -> None:

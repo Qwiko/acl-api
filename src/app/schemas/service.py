@@ -3,7 +3,7 @@ from typing import Annotated, List
 from pydantic import BaseModel, Field, PositiveInt, field_validator, model_validator
 from typing_extensions import Self
 
-from ..core.schemas import TimestampSchema
+from app.core.schemas import TimestampSchema
 
 
 class ServiceBase(BaseModel):

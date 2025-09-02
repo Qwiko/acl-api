@@ -7,8 +7,8 @@ from sqlalchemy_mixins.timestamp import TimestampsMixin
 
 from app.models.base import Base
 
-from .dynamic_policy import DynamicPolicy
-from .policy import Policy
+from app.models.dynamic_policy import DynamicPolicy
+from app.models.policy import Policy
 
 
 class TestDynamicPolicyAssociation(Base):

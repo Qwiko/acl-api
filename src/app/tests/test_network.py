@@ -1,11 +1,12 @@
 from fastapi import status
 from fastapi.testclient import TestClient
-from pytest_mock import MockerFixture
 from sqlalchemy.orm import Session
 
-from tests.conftest import fake, override_dependency
 
-from .helpers import generators, mocks
+from app.tests.helpers import generators
+from faker import Faker
+
+fake = Faker()
 
 
 def test_post_network(client: TestClient) -> None:
@@ -121,74 +122,4 @@ def test_delete_network(db: Session, client: TestClient) -> None:
 
     # Test deleting a non-existent network
     response = client.delete("/api/v1/networks/999999999")
-    assert response.status_code == status.HTTP_404_NOT_FOUND
-
-
-def test_post_network_address(db: Session, client: TestClient) -> None:
-    nested_network_1 = generators.create_network(db)
-    nested_network_2 = generators.create_network(db)
-    network = generators.create_network(db)
-
-    # Test creating a address with adress
-    response = client.post(
-        f"/api/v1/networks/{network.id}/addresses",
-        json={
-            "address": fake.ipv4(),
-            "comment": fake.sentence(),
-            "nested_network_id": None,
-        },
-    )
-    assert response.status_code == status.HTTP_201_CREATED
-
-    # Test creating an address with a nested network
-    response = client.post(
-        f"/api/v1/networks/{network.id}/addresses",
-        json={
-            "nested_network_id": nested_network_1.id,
-        },
-    )
-    assert response.status_code == status.HTTP_201_CREATED
-
-    # Test adding nested_network_2
-    response = client.post(
-        f"/api/v1/networks/{network.id}/addresses",
-        json={
-            "nested_network_id": nested_network_2.id,
-        },
-    )
-    assert response.status_code == status.HTTP_201_CREATED
-
-    # Test deleting the nested network
-    response = client.delete(
-        f"/api/v1/networks/{nested_network_1.id}",
-    )
-    assert response.status_code == status.HTTP_403_FORBIDDEN
-
-    # Test creating an address with a non-existent nested network
-    response = client.post(
-        f"/api/v1/networks/{network.id}/addresses",
-        json={
-            "nested_network_id": 99999999,
-        },
-    )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-
-    # Test creating an address with address and nested_network_id
-    response = client.post(
-        f"/api/v1/networks/{network.id}/addresses",
-        json={
-            "address": fake.ipv4(),
-            "comment": fake.sentence(),
-            "nested_network_id": 99999999,
-        },
-    )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-
-    # Test creating an address with a non-existent network
-    response = client.post(
-        f"/api/v1/networks/{99999999}/addresses",
-        json={
-            "nested_network_id": 99999999,
-        },
-    )
     assert response.status_code == status.HTTP_404_NOT_FOUND

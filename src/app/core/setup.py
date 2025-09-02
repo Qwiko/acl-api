@@ -21,7 +21,7 @@ from app.core.utils import queue
 from app.models.base import Base
 from app.version import __description__, __title__, __version__
 
-from .config import (
+from app.core.config import (
     AppSettings,
     DatabaseSettings,
     EnvironmentOption,

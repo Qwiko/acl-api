@@ -7,13 +7,13 @@ from sqlalchemy_mixins.timestamp import TimestampsMixin
 
 from app.models.base import Base
 
-from ..schemas.custom_validators import DNSHostname
+from app.schemas.custom_validators import DNSHostname
 
 if TYPE_CHECKING:
-    from .deployment import Deployment
-    from .revision import Revision
-    from .target import Target
-    from .test import Test
+    from app.models.deployment import Deployment
+    from app.models.revision import Revision
+    from app.models.target import Target
+    from app.models.test import Test
 else:
     Deployment = "Deployment"
     Target = "Target"
@@ -37,26 +37,26 @@ class Deployer(Base, TimestampsMixin):
         "DeployerConfig", back_populates="deployer", lazy="selectin", uselist=False, cascade="all, delete-orphan"
     )
 
-    deployments = relationship("Deployment", back_populates="deployer")
+    deployments: Mapped[list["Deployment"]] = relationship("Deployment", back_populates="deployer")
 
 
 class DeployerConfig(Base):
     __tablename__ = "deployer_configs"
-
-    id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
-    type: Mapped[str] = mapped_column(String, nullable=False)
-
-    deployer_id: Mapped[int] = mapped_column(ForeignKey("deployers.id"), unique=True, init=False)
-    deployer = relationship("Deployer", foreign_keys=[deployer_id], back_populates="config")
-
     __mapper_args__ = {
         "polymorphic_identity": "base",
         "polymorphic_on": "type",
     }
 
+    id: Mapped[int] = mapped_column("id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False)
+    type: Mapped[str] = mapped_column(String, nullable=False)
+
+    deployer_id: Mapped[int] = mapped_column(ForeignKey("deployers.id"), unique=True, init=False)
+    deployer: Mapped[list["Deployer"]] = relationship("Deployer", foreign_keys=[deployer_id], back_populates="config")
+
 
 class DeployerProxmoxNftConfig(DeployerConfig):
     __tablename__ = "deployer_proxmox_nft_configs"
+    __mapper_args__ = {"polymorphic_identity": "proxmox_nft"}
 
     id: Mapped[int] = mapped_column(ForeignKey("deployer_configs.id"), primary_key=True, init=False)
 
@@ -68,11 +68,10 @@ class DeployerProxmoxNftConfig(DeployerConfig):
 
     port: Mapped[int] = mapped_column(Integer, default=22)
 
-    __mapper_args__ = {"polymorphic_identity": "proxmox_nft"}
-
 
 class DeployerNetmikoConfig(DeployerConfig):
     __tablename__ = "deployer_netmiko_configs"
+    __mapper_args__ = {"polymorphic_identity": "netmiko"}
 
     id: Mapped[int] = mapped_column(ForeignKey("deployer_configs.id"), primary_key=True, init=False)
 
@@ -85,11 +84,10 @@ class DeployerNetmikoConfig(DeployerConfig):
 
     port: Mapped[int] = mapped_column(Integer, default=22)
 
-    __mapper_args__ = {"polymorphic_identity": "netmiko"}
-
 
 class DeployerGitConfig(DeployerConfig):
     __tablename__ = "deployer_git_configs"
+    __mapper_args__ = {"polymorphic_identity": "git"}
 
     id: Mapped[int] = mapped_column(ForeignKey("deployer_configs.id"), primary_key=True, init=False)
 
@@ -99,5 +97,3 @@ class DeployerGitConfig(DeployerConfig):
 
     ssh_key_envvar: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     auth_token_envvar: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-
-    __mapper_args__ = {"polymorphic_identity": "git"}

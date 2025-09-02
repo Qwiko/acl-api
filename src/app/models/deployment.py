@@ -7,10 +7,10 @@ from sqlalchemy_mixins.timestamp import TimestampsMixin
 from app.models.base import Base
 
 if TYPE_CHECKING:
-    from .deployer import Deployer
-    from .revision import Revision
-    from .target import Target
-    from .test import Test
+    from app.models.deployer import Deployer
+    from app.models.revision import Revision
+    from app.models.target import Target
+    from app.models.test import Test
 else:
     Deployer = "Deployer"
     Target = "Target"

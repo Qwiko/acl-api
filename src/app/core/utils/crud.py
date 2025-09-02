@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload, noload
 
-from ...core.exceptions.http_exceptions import NotFoundException
+from app.core.exceptions.http_exceptions import NotFoundException
 
 T = TypeVar("T")  # Represents a SQLAlchemy model
 P = TypeVar("P", bound=BaseModel)  # Represents a Pydantic model

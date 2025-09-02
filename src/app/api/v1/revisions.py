@@ -35,7 +35,7 @@ from app.schemas.revision import (
     PolicyRevisionReadBrief,
 )
 
-from .tests import get_tests_run
+from app.api.v1.tests import get_tests_run
 
 router = APIRouter(tags=["revisions"])
 
@@ -91,7 +91,7 @@ async def write_revision(
 
         if dynamic_policy is None:
             raise NotFoundException("Dynamic policy not found")
-        
+
         if not dynamic_policy.targets:
             raise HTTPException(status_code=403, detail="No targets found for dynamic policy")
         # Set edited=False

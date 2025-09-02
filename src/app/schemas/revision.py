@@ -3,7 +3,7 @@ from typing import Annotated, Any, List, Text
 from pydantic import BaseModel, Field, Json, ValidationError, model_validator
 from pydantic_core import InitErrorDetails, PydanticCustomError
 
-from ..core.schemas import TimestampSchema
+from app.core.schemas import TimestampSchema
 
 
 # DynamicRevisions

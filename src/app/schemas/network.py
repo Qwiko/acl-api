@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, PositiveInt, field_validator, model_valid
 from pydantic.networks import IPvAnyNetwork
 from typing_extensions import Self
 
-from ..core.schemas import TimestampSchema
+from app.core.schemas import TimestampSchema
 
 
 class NetworkBase(BaseModel):

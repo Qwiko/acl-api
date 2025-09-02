@@ -1,9 +1,9 @@
-from .deployer import Deployer, DeployerGitConfig, DeployerNetmikoConfig, DeployerProxmoxNftConfig
-from .deployment import Deployment
-from .dynamic_policy import DynamicPolicy
-from .network import Network, NetworkAddress
-from .policy import Policy, PolicyTerm
-from .revision import Revision, RevisionConfig
-from .service import Service, ServiceEntry
-from .target import Target, TargetSubstitution
-from .test import Test, TestCase
+from app.models.deployer import Deployer, DeployerGitConfig, DeployerNetmikoConfig, DeployerProxmoxNftConfig
+from app.models.deployment import Deployment
+from app.models.dynamic_policy import DynamicPolicy
+from app.models.network import Network, NetworkAddress
+from app.models.policy import Policy, PolicyTerm
+from app.models.revision import Revision, RevisionConfig
+from app.models.service import Service, ServiceEntry
+from app.models.target import Target, TargetSubstitution
+from app.models.test import Test, TestCase

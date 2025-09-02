@@ -2,7 +2,7 @@ from typing import Annotated, Optional
 
 from pydantic import BaseModel, Field, PositiveInt
 
-from ..core.schemas import TimestampSchema
+from app.core.schemas import TimestampSchema
 
 
 class DeploymentBase(BaseModel):

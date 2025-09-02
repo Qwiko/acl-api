@@ -64,7 +64,7 @@ async def write_test(
     del values.dynamic_policies
     del values.policies
     del values.cases
-    
+
     # Fetch related dynamic_policies and policies
     dynamic_policies_db = await db.execute(select(DynamicPolicy).where(DynamicPolicy.id.in_(dynamic_policies)))
     policies_db = await db.execute(select(Policy).where(Policy.id.in_(policies)))
@@ -72,7 +72,6 @@ async def write_test(
     # Assign dynamic_policies and policies to the policy
     fetched_dynamic_policies = dynamic_policies_db.unique().scalars().all()
     fetched_policies = policies_db.unique().scalars().all()
-
 
     test = Test(**values.model_dump(), dynamic_policies=fetched_dynamic_policies, policies=fetched_policies)
 
@@ -119,14 +118,14 @@ async def put_test(
     existing_test = result.unique().scalars().one_or_none()
     if existing_test:
         raise RequestValidationError([{"loc": ["body", "name"], "msg": "A test with this name already exists"}])
-    
+
     dynamic_policies = values.dynamic_policies or []
     policies = values.policies or []
     cases = values.cases or []
     del values.dynamic_policies
     del values.policies
     del values.cases
-    
+
     # Fetch related dynamic_policies and policies
     dynamic_policies_db = await db.execute(select(DynamicPolicy).where(DynamicPolicy.id.in_(dynamic_policies)))
     policies_db = await db.execute(select(Policy).where(Policy.id.in_(policies)))
@@ -138,10 +137,10 @@ async def put_test(
     # Update the existing test
     for k, v in values.model_dump(exclude_unset=True).items():
         setattr(test, k, v)
-        
+
     test.dynamic_policies = fetched_dynamic_policies
     test.policies = fetched_policies
-    
+
     # Clear existing cases and add new ones
     test.cases.clear()
     for case in cases:

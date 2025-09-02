@@ -4,8 +4,8 @@ from typing import Annotated, Literal, Optional, Union
 from pydantic import BaseModel, Field, PositiveInt, field_validator, model_validator
 from pydantic.networks import IPvAnyAddress
 
-from ..core.schemas import TimestampSchema
-from ..schemas.custom_validators import DNSHostname
+from app.core.schemas import TimestampSchema
+from app.schemas.custom_validators import DNSHostname
 
 
 class DeployerModeEnum(str, Enum):

@@ -5,8 +5,8 @@ from aerleon.lib.plugin_supervisor import BUILTIN_GENERATORS
 from netutils.lib_mapper import AERLEON_LIB_MAPPER
 from pydantic import BaseModel, Field, PositiveInt, field_validator
 
-from ..core.schemas import TimestampSchema
-from .custom_validators import EnsureListUnique
+from app.core.schemas import TimestampSchema
+from app.schemas.custom_validators import EnsureListUnique
 
 
 class TargetInetModeEnum(str, Enum):

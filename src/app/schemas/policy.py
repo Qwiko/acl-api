@@ -15,6 +15,7 @@ class PolicyBase(BaseModel):
     comment: Annotated[str | None, Field(max_length=300, examples=["This is my policy comment"], default=None)]
     custom_aerleon_header: Optional[str] = None
 
+
 class PolicyRead(TimestampSchema, PolicyBase):
     id: int
     edited: StrictBool
@@ -27,6 +28,7 @@ class PolicyRead(TimestampSchema, PolicyBase):
 class PolicyReadBrief(TimestampSchema, PolicyBase):
     id: int
     edited: StrictBool
+
 
 class PolicyCreated(TimestampSchema, PolicyBase):
     id: int
@@ -60,8 +62,6 @@ class PolicyDelete(PolicyBase):
 
 class PolicyUsage(BaseModel):
     policies: Annotated[List[PositiveInt], Field(default_factory=list)]
-
-
 
 
 ## PolicyTerm
