@@ -46,6 +46,7 @@ passlib = "^1.7.4"
 pyjwt = "^2.10.1"
 netutils = "^1.14.1"
 pytest-dotenv = "^0.5.2"
+ldap3 = "^2.9.1"
 
 
 [build-system]
