@@ -41,11 +41,9 @@ async def read_services(
     query = select(Service).outerjoin(ServiceEntry, (Service.id == ServiceEntry.service_id))
     query = service_filter.filter(query)
     query = service_filter.sort(query)
+    query = query.distinct(Service.id)
 
-    count_query = select(func.count()).select_from(Service)
-    count_query = service_filter.filter(count_query)
-
-    return await paginate(db, query, count_query=count_query)
+    return await paginate(db, query)
 
 
 @router.post("/services", response_model=ServiceCreated, status_code=201)

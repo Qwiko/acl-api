@@ -38,14 +38,12 @@ async def read_networks(
     db: Annotated[AsyncSession, Depends(async_get_db)],
     network_filter: NetworkFilter = FilterDepends(NetworkFilter),
 ) -> Any:
-    query = select(Network)  # .outerjoin(NetworkAddress, (Network.id == NetworkAddress.network_id))
+    query = select(Network).outerjoin(NetworkAddress, (Network.id == NetworkAddress.network_id))
     query = network_filter.filter(query)
     query = network_filter.sort(query)
+    query = query.distinct(Network.id)
 
-    count_query = select(func.count()).select_from(Network)
-    count_query = network_filter.filter(count_query)
-
-    return await paginate(db, query, count_query=count_query)
+    return await paginate(db, query)
 
 
 @router.post("/networks", response_model=NetworkCreated, status_code=201)

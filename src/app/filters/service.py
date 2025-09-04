@@ -1,8 +1,8 @@
 from typing import Optional
 
 from fastapi_filter import FilterDepends, with_prefix
-from fastapi_filter.contrib.sqlalchemy import Filter
 
+from app.filters.custom_filter import CustomFilter as Filter
 from app.models import Service, ServiceEntry
 
 
@@ -32,5 +32,5 @@ class ServiceFilter(Filter):
 
     class Constants(Filter.Constants):
         model = Service
-        search_model_fields = ["name"]
+        search_model_fields = ["name", "entries__port"]
         search_field_name = "q"

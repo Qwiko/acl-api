@@ -1,7 +1,6 @@
 from typing import Optional
 
-from fastapi_filter.contrib.sqlalchemy import Filter
-
+from app.filters.custom_filter import CustomFilter as Filter
 from app.models import Deployer
 
 

@@ -1,8 +1,8 @@
 from typing import Optional
 
 from fastapi_filter import FilterDepends, with_prefix
-from fastapi_filter.contrib.sqlalchemy import Filter
 
+from app.filters.custom_filter import CustomFilter as Filter
 from app.models import Test, TestCase
 
 
