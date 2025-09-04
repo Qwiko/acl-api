@@ -11,6 +11,7 @@ from netutils.lib_mapper import NETMIKO_LIB_MAPPER_REVERSE
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from app.core.utils.revision_hash import revision_hash
 from app.models import Deployer, DeployerNetmikoConfig, RevisionConfig
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -97,16 +98,19 @@ async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args,
             logger.error("Not in enable_mode, disconnecting.")
             net_connect.disconnect()
             raise RuntimeError("Not in enable_mode, disconnecting.")
+        
+        # Revision hash for auth
+        hash = revision_hash(revision_config.config)
 
         # For certain devices we can use copy to running-config command with http instead of sending the acl one line at a time
         # Only if we have a api_url
         # TODO add temporary authentication here
-        if api_url and generator in ["cisco"]:
+        if api_url and generator in ["cisco_ios"]:
             logger.info("Trying to get acl from remote API")
 
             # TODO add some generic function here to copy over the acl.
             output = net_connect.send_command(
-                f"copy {api_url}/revisions/{revision_id}/raw_config/{target_id} running-config",
+                f"copy {api_url}/revisions/{revision_id}/raw_config/{target_id}/{hash} running-config",
                 expect_string=r"Destination filename",
                 strip_prompt=False,
                 strip_command=False,
@@ -121,7 +125,7 @@ async def deploy_netmiko(ctx: Worker, revision_id: int, deployer_id: int, *args,
             logger.info("Trying to get acl from remote API")
 
             output = net_connect.send_command(
-                f"copy {api_url}/revisions/{revision_id}/raw_config/{target_id} running-config",
+                f"copy {api_url}/revisions/{revision_id}/raw_config/{target_id}/{hash} running-config",
                 expect_string=r"Enter vrf",
                 strip_prompt=False,
                 strip_command=False,

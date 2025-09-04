@@ -9,6 +9,7 @@ from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.tests import get_tests_run
 from app.core.config import settings
 from app.core.cruds import deployer_crud, dynamic_policy_crud, policy_crud, revision_crud
 from app.core.db.database import async_get_db
@@ -17,6 +18,7 @@ from app.core.security import User, get_current_user
 from app.core.utils import queue
 from app.core.utils.dynamic_policy_helpers import fetch_addresses, fetch_networks, fetch_terms
 from app.core.utils.generate import generate_acl_from_policy, get_expanded_terms
+from app.core.utils.revision_hash import revision_hash
 from app.filters.revision import RevisionFilter
 from app.models import (
     Deployment,
@@ -34,8 +36,6 @@ from app.schemas.revision import (
     PolicyRevisionRead,
     PolicyRevisionReadBrief,
 )
-
-from app.api.v1.tests import get_tests_run
 
 router = APIRouter(tags=["revisions"])
 
@@ -252,20 +252,20 @@ async def erase_revision(
     return {"message": "Revision deleted"}
 
 
-# TODO
-# Add some other auth mechanic for network equipment to use.
-
-
-@router.get("/revisions/{revision_id}/raw_config/{target_id}", response_class=PlainTextResponse)
+# Auth from hashing the config in the worker and here in this endpoint.
+@router.get("/revisions/{revision_id}/raw_config/{target_id}/{hash}", response_class=PlainTextResponse)
 async def read_revision_config_raw(
     revision_id: int,
     target_id: int,
-    # current_user: Annotated[User, Security(get_current_user, scopes=["revisions:read"])],
+    hash: str,
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> Any:
     """
     Get the raw config for a revision and target.
     """
+    if not hash:
+        raise HTTPException(status_code=400, detail="You need to include query param: hash") 
+    
     res = await db.execute(
         select(RevisionConfig)
         .where(RevisionConfig.revision_id == revision_id)
@@ -276,6 +276,9 @@ async def read_revision_config_raw(
 
     if revision_config is None:
         raise NotFoundException("RevisionConfig not found")
+
+    if revision_hash(revision_config.config) != hash:
+        raise HTTPException(status_code=400, detail="The hash does not match.")
 
     return revision_config.config
 
