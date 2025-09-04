@@ -39,11 +39,28 @@ oauth2_scheme = OAuth2PasswordBearer(
 
 
 def authenticate_user(username: str, password: str) -> User | bool:
-    user_bind_dn = settings.LDAP_USER_BASE_DN.format(username=username)
+    user_bind_dn = settings.LDAP_USER_BIND_DN.format(username=username)
     server = Server(settings.LDAP_SERVER_URI, get_info=ALL)
     conn = Connection(server, user=user_bind_dn, password=password)
     if not conn.bind():
         return False
+
+    conn.search(
+        search_base=settings.LDAP_USER_SEARCH_BASE,
+        search_filter=settings.LDAP_USER_SEARCH_FILTER.format(username=username),
+        attributes=[
+            settings.LDAP_USERNAME_ATTR,
+            settings.LDAP_EMAIL_ATTR,
+            settings.LDAP_NAME_ATTR,
+        ]
+    )
+    
+    if conn.entries:
+        entry = conn.entries[0]
+        email = entry[settings.LDAP_EMAIL_ATTR].value if settings.LDAP_EMAIL_ATTR in entry else None
+        full_name = entry[settings.LDAP_NAME_ATTR].value if settings.LDAP_NAME_ATTR in entry else entry[settings.LDAP_USERNAME_ATTR].value
+
+        return User(username=username, email=email, full_name=full_name)
     return User(username=username)
 
 
@@ -72,13 +89,15 @@ async def get_current_user(security_scopes: SecurityScopes, token: Annotated[str
     try:
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         username = payload.get("sub")
+        full_name = payload.get("full_name")
+        email = payload.get("email")
         if username is None:
             raise credentials_exception
         token_scopes = payload.get("scopes", [])
         token_data = TokenData(scopes=token_scopes, username=username)
     except (InvalidTokenError, ValidationError) as e:
         raise credentials_exception
-    user = {"username": token_data.username}
+    user = User(username=username, full_name=full_name, email=email)
     for scope in security_scopes.scopes:
         if scope not in token_data.scopes:
             raise HTTPException(

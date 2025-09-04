@@ -1,5 +1,6 @@
 import os
 from enum import Enum
+
 from pydantic_settings import BaseSettings
 from starlette.config import Config
 
@@ -16,7 +17,16 @@ class LDAPSettings(BaseSettings):
     LDAP_SERVER_URI: str = config("LDAP_SERVER_URI", default="")
     LDAP_BIND_DN: str = config("LDAP_BIND_DN", default="")
     LDAP_BIND_PASSWORD: str = config("LDAP_BIND_PASSWORD", default="")
-    LDAP_USER_BASE_DN: str = config("LDAP_USER_BASE_DN", default="")
+
+    LDAP_USER_BIND_DN: str = config("LDAP_USER_BIND_DN", default="cn={username},ou=people,dc=example,dc=org")
+
+    LDAP_USER_SEARCH_BASE: str = config("LDAP_USER_SEARCH_BASE", default="ou=people,dc=example,dc=org")
+    LDAP_USER_SEARCH_FILTER: str = config("LDAP_USER_SEARCH_FILTER", default="(uid={username})")
+
+    LDAP_USERNAME_ATTR: str = config("LDAP_USERNAME_ATTR", default="cn")
+    LDAP_NAME_ATTR: str = config("LDAP_NAME_ATTR", default="displayName")
+    LDAP_EMAIL_ATTR: str = config("LDAP_EMAIL_ATTR", default="mail")
+
     JWT_SECRET_KEY: str = config("JWT_SECRET_KEY", default="supersecret")
     JWT_ALGORITHM: str = config("JWT_ALGORITHM", default="HS256")
     JWT_EXPIRE_MINUTES: int = config("JWT_EXPIRE_MINUTES", default=60)

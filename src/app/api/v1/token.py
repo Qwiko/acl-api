@@ -27,7 +27,10 @@ async def login_for_access_token(
     access_token_expires = timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={
-            "sub": form_data.username,
+            "sub": user.username,
+            "username": user.username,
+            "full_name": user.full_name,
+            "email": user.email,
             "scopes": [
                 "deployers:read",
                 "deployers:write",
