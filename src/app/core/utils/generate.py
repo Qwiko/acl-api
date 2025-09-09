@@ -196,7 +196,7 @@ async def get_service_protocols(db: AsyncSession, service: Service) -> List[str]
     return protocols
 
 
-async def get_protocol_map(db: AsyncSession, terms: List[PolicyTerm]) -> Any:
+async def get_protocol_map(db: AsyncSession, terms: List[PolicyTerm]) -> dict:
     protocol_map = {}
 
     for term in terms:
@@ -210,10 +210,13 @@ async def get_protocol_map(db: AsyncSession, terms: List[PolicyTerm]) -> Any:
     return protocol_map
 
 
-def get_aerleon_terms(terms: List[PolicyTerm], protocol_map) -> List[dict]:
+def get_aerleon_terms(terms: List[PolicyTerm], protocol_map: dict) -> List[dict]:
     terms_arr = []
 
     for term in terms:
+        # See https://aerleon.readthedocs.io/en/latest/reference/generators/#term-format
+        # for format of the term.
+        
         # Skip not enabled terms
         if not term.enabled:
             continue
@@ -225,11 +228,22 @@ def get_aerleon_terms(terms: List[PolicyTerm], protocol_map) -> List[dict]:
             "destination-address": [],
             "source-port": [],
             "destination-port": [],
-            "option": term.option,
         }
 
         if term.logging:
             term_dict["logging"] = term.logging
+
+        if term.expiration:
+            term_dict["expiration"] = term.expiration
+            
+        if term.option:
+            term_dict["option"] = term.option
+
+        if term.platform:
+            if term.negate_platform:
+                term_dict["platform-exlude"] = term.platform
+            else:
+                term_dict["platform"] = term.platform
 
         # Networks
         if term.source_networks:

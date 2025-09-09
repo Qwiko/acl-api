@@ -1,14 +1,14 @@
+from datetime import date
 from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import ARRAY, Boolean, CheckConstraint, Date, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy_mixins.timestamp import TimestampsMixin
 
 from app.models.base import Base
-
 from app.models.network import Network
 from app.models.service import Service
 
@@ -132,16 +132,22 @@ class PolicyTerm(Base):
     policy: Mapped["Policy"] = relationship(foreign_keys=[policy_id], back_populates="terms", lazy="selectin")
 
     name: Mapped[str] = mapped_column(String)
-
+    
+    enabled: Mapped[bool] = mapped_column(Boolean)
+    
     comment: Mapped[Optional[str]] = mapped_column(String)
 
     source_networks: Mapped[Optional[List["Network"]]] = relationship(
         secondary="policy_term_source_network_association", lazy="selectin"
     )
 
+    negate_source_networks: Mapped[Optional[bool]] = mapped_column(Boolean)
+
     destination_networks: Mapped[Optional[List["Network"]]] = relationship(
         secondary="policy_term_destination_network_association", lazy="selectin"
     )
+
+    negate_destination_networks: Mapped[Optional[bool]] = mapped_column(Boolean)
 
     source_services: Mapped[Optional[List["Service"]]] = relationship(
         secondary="policy_term_source_service_association", lazy="selectin"
@@ -151,17 +157,21 @@ class PolicyTerm(Base):
         secondary="policy_term_destination_service_association", lazy="selectin"
     )
 
+    platform: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String))
+
+    negate_platform: Mapped[Optional[bool]] = mapped_column(Boolean)
+
+    expiration: Mapped[Optional[date]] = mapped_column(Date)
+
+    owner: Mapped[Optional[str]] = mapped_column(String)
+
     option: Mapped[Optional[PolicyOptionEnum]] = mapped_column(SQLAlchemyEnum(PolicyOptionEnum))
 
     logging: Mapped[Optional[bool]] = mapped_column(Boolean)
 
     action: Mapped[Optional[PolicyActionEnum]] = mapped_column(SQLAlchemyEnum(PolicyActionEnum))
 
-    negate_source_networks: Mapped[Optional[bool]] = mapped_column(Boolean)
-    negate_destination_networks: Mapped[Optional[bool]] = mapped_column(Boolean)
     nested_policy_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policies.id"), default=None)
-
-    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
     @property
     def valid_name(self) -> str:

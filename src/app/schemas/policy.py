@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Any, List, Optional, Text, Union
 
 from pydantic import BaseModel, Field, PositiveInt, StrictBool, ValidationError, field_validator, model_validator
@@ -93,6 +93,9 @@ class PolicyTermSharedBase(BaseModel):
             "destination_networks",
             "source_services",
             "destination_services",
+            "platform",
+            "negate_platform",
+            "expiration"
         ]
         for check_field in check_fields:
             if not isinstance(data, str) and data.get(check_field) and data.get("nested_policy_id"):
@@ -132,8 +135,25 @@ class PolicyTermBase(PolicyTermSharedBase):
 
     action: PolicyActionEnum = PolicyActionEnum.ACCEPT
 
+    platform: Optional[List[str]] = []
+
+    negate_platform: Optional[bool] = None
+
+    expiration: Optional[date] = None
+
+    owner: Optional[str] = None
+
     negate_source_networks: Annotated[bool, Field(default=False)]
     negate_destination_networks: Annotated[bool, Field(default=False)]
+
+    # expiration if empty is None
+    @field_validator("expiration", mode="before")
+    @classmethod
+    def validate_expiration(cls, v):
+        if not v: # Turns "" to None
+            return None
+        return v
+
 
 
 class PolicyTermNestedBase(PolicyTermSharedBase):
